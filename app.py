@@ -66,6 +66,118 @@ st.markdown(
     }
     .hero h1 { color: #fff !important; margin: 0; }
     .hero p { color: #fff !important; font-size: 17px; margin-bottom: 0; }
+
+    /* Full-screen effects: readable, restrained flashing */
+    @keyframes fullShake {
+        0%, 100% { transform: translate(0, 0); }
+        12% { transform: translate(-7px, 3px); }
+        24% { transform: translate(7px, -2px); }
+        36% { transform: translate(-5px, -3px); }
+        48% { transform: translate(5px, 2px); }
+        60% { transform: translate(-3px, 1px); }
+        72% { transform: translate(3px, -1px); }
+    }
+    @keyframes overlayIn {
+        0% { opacity: 0; }
+        8% { opacity: 1; }
+        78% { opacity: 1; }
+        100% { opacity: 0; }
+    }
+    @keyframes cardIn {
+        0% { transform: scale(.65) rotate(-4deg); }
+        12% { transform: scale(1.04) rotate(1deg); }
+        20%, 78% { transform: scale(1) rotate(0); }
+        100% { transform: scale(.96); }
+    }
+    @keyframes particleBurst {
+        0% { transform: translate(-50%, -50%) scale(.35) rotate(0); opacity: 0; }
+        12% { opacity: 1; }
+        100% { transform: translate(calc(-50% + var(--dx)), calc(-50% + var(--dy))) scale(1.2) rotate(360deg); opacity: 0; }
+    }
+    @keyframes turtleTraverse {
+        0% { transform: translateX(-45vw) rotate(-8deg); opacity: 0; }
+        12% { opacity: 1; }
+        35% { transform: translateX(-10vw) rotate(7deg); }
+        60% { transform: translateX(15vw) rotate(-5deg); }
+        88% { opacity: 1; }
+        100% { transform: translateX(45vw) rotate(0); opacity: 0; }
+    }
+    .gd-fullscreen-overlay {
+        position: fixed !important;
+        inset: 0 !important;
+        width: 100vw !important;
+        height: 100vh !important;
+        z-index: 2147483000 !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        overflow: hidden !important;
+        pointer-events: none !important;
+        animation: overlayIn 3s ease-in-out both;
+        background: radial-gradient(ellipse at center, rgba(135, 12, 0, .70), rgba(35, 0, 0, .82));
+    }
+    .gd-fullscreen-overlay.gd-failure {
+        background: radial-gradient(ellipse at center, rgba(145, 18, 0, .72), rgba(25, 0, 0, .84));
+    }
+    .gd-effect-card {
+        position: relative;
+        width: min(88vw, 760px);
+        max-height: 82vh;
+        overflow: hidden;
+        padding: clamp(20px, 4vw, 42px);
+        text-align: center;
+        color: #fff !important;
+        border: 3px solid #ff7658;
+        border-radius: 26px;
+        background: linear-gradient(145deg, #310b12 0%, #151523 58%, #4a1009 100%);
+        box-shadow: 0 0 45px rgba(255, 67, 20, .65), inset 0 0 30px rgba(255, 120, 45, .12);
+        animation: cardIn 3s ease-out both;
+    }
+    .gd-effect-card * { color: #fff !important; }
+    .gd-effect-kicker {
+        font-size: clamp(22px, 4vw, 42px);
+        font-weight: 1000;
+        line-height: 1.15;
+        color: #ff7768 !important;
+        text-shadow: 0 2px 12px rgba(255, 40, 20, .45);
+        margin-bottom: 12px;
+    }
+    .gd-effect-emoji {
+        font-size: clamp(58px, 11vw, 112px);
+        line-height: 1.2;
+        margin: 8px 0 14px;
+        filter: drop-shadow(0 5px 18px rgba(255, 91, 0, .55));
+    }
+    .gd-effect-headline {
+        font-size: clamp(19px, 3.2vw, 30px);
+        font-weight: 900;
+        line-height: 1.3;
+        margin: 10px 0;
+    }
+    .gd-effect-copy {
+        font-size: clamp(15px, 2vw, 19px);
+        line-height: 1.5;
+        color: #ffe1d6 !important;
+    }
+    .gd-effect-particle {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        font-size: clamp(24px, 3.5vw, 40px);
+        animation: particleBurst 2.3s cubic-bezier(.15,.65,.2,1) both;
+    }
+    .gd-turtle-overlay {
+        background: radial-gradient(ellipse at center, rgba(15, 90, 35, .72), rgba(4, 35, 18, .84));
+    }
+    .gd-turtle-card {
+        background: linear-gradient(145deg, #123b28, #214b25 60%, #6a5520);
+        border-color: #b4e57b;
+        box-shadow: 0 0 40px rgba(150, 220, 80, .45);
+    }
+    .gd-turtle-card .gd-effect-emoji {
+        animation: turtleTraverse 1.5s ease-in-out both;
+    }
+
     </style>
     """,
     unsafe_allow_html=True,
@@ -112,6 +224,8 @@ if "last_result" not in st.session_state:
     st.session_state.last_result = None
 if "attempt_id" not in st.session_state:
     st.session_state.attempt_id = 0
+if "effect_shown_for_attempt" not in st.session_state:
+    st.session_state.effect_shown_for_attempt = -1
 
 # =========================================================
 # 5. 경사하강법과 결과 판정
@@ -185,161 +299,71 @@ def calc_score(final_x, status_code):
 # 6. 이펙트: iframe에서 HTML을 직접 렌더링해 코드 노출 방지
 # =========================================================
 def show_failure_effect(alpha, attempt_id):
+    """앱 전체 화면을 덮는 3초짜리 실패 오버레이. 깜빡임은 줄이고 문구 가독성을 우선한다."""
     if alpha > 1.0:
         message = "학습률이 너무 공격적이었습니다!"
         headline = "🚨 학습률 폭주 🚨"
     elif np.isclose(alpha, 1.0, atol=1e-8):
-        message = "공이 같은 거리로 영원히 튕깁니다!"
+        message = "공이 같은 거리로 계속 튕깁니다. 수렴하지 않습니다!"
         headline = "🔁 무한 핑퐁 대참사 🔁"
     else:
         message = "정해진 이동 횟수 안에 목표에 도착하지 못했습니다!"
-        headline = "💥 착지 실패! 경사하강법 대참사 발생! 💥"
+        headline = "착지 실패! 경사하강법 대참사 발생!"
 
     particles = [
-        ("🔥", "-250px", "-150px"), ("💥", "230px", "-170px"),
-        ("☄️", "-260px", "90px"), ("🧨", "250px", "110px"),
-        ("⚡", "-140px", "190px"), ("🔥", "150px", "210px"),
-        ("💣", "0px", "-230px"), ("✨", "270px", "-10px"),
-        ("💥", "-270px", "-25px"), ("🪨", "90px", "-200px"),
-        ("🌋", "-180px", "150px"), ("🚨", "190px", "-110px"),
-        ("⭐", "220px", "180px"), ("🔥", "-60px", "210px"),
+        ("🔥", "-42vw", "-28vh"), ("💥", "38vw", "-30vh"),
+        ("☄️", "-43vw", "18vh"), ("🧨", "42vw", "20vh"),
+        ("⚡", "-23vw", "32vh"), ("🔥", "25vw", "34vh"),
+        ("💣", "0vw", "-38vh"), ("✨", "44vw", "-3vh"),
+        ("💥", "-44vw", "-4vh"), ("🪨", "14vw", "-33vh"),
+        ("🌋", "-30vw", "25vh"), ("🚨", "32vw", "-20vh"),
+        ("⭐", "37vw", "29vh"), ("🔥", "-10vw", "35vh"),
     ]
     particle_html = "".join(
-        f'<span class="particle" style="--dx:{dx};--dy:{dy};animation-delay:{i * 0.025}s">{emoji}</span>'
+        f'<span class="gd-effect-particle" style="--dx:{dx};--dy:{dy};animation-delay:{i * 0.035}s">{emoji}</span>'
         for i, (emoji, dx, dy) in enumerate(particles)
     )
-    safe_message = html.escape(message)
-    safe_headline = html.escape(headline)
 
-    html_doc = f"""
-    <!doctype html><html><head><meta charset="utf-8">
-    <style>
-      * {{box-sizing:border-box}}
-      html,body {{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:transparent;font-family:Arial,sans-serif}}
-      @keyframes shake {{
-        0%,100% {{transform:translate(0,0) rotate(0)}}
-        8% {{transform:translate(-10px,5px) rotate(-.5deg)}}
-        16% {{transform:translate(9px,-5px) rotate(.5deg)}}
-        24% {{transform:translate(-11px,-4px) rotate(-.4deg)}}
-        32% {{transform:translate(10px,6px) rotate(.4deg)}}
-        40% {{transform:translate(-8px,3px)}}
-        48% {{transform:translate(8px,-4px)}}
-        56% {{transform:translate(-6px,-3px)}}
-        64% {{transform:translate(6px,4px)}}
-        72% {{transform:translate(-4px,2px)}}
-        84% {{transform:translate(3px,-2px)}}
-      }}
-      @keyframes flash {{
-        0%,100% {{opacity:0}}
-        5%,17%,29%,41% {{opacity:.68}}
-        11%,23%,35%,47% {{opacity:.05}}
-      }}
-      @keyframes pop {{
-        0% {{transform:scale(.03) rotate(-25deg);opacity:0}}
-        20% {{transform:scale(1.18) rotate(9deg);opacity:1}}
-        32% {{transform:scale(.92) rotate(-5deg)}}
-        45% {{transform:scale(1.05) rotate(3deg)}}
-        60%,100% {{transform:scale(1) rotate(0);opacity:1}}
-      }}
-      @keyframes fly {{
-        0% {{transform:translate(0,0) scale(.2) rotate(0);opacity:0}}
-        8% {{opacity:1}}
-        100% {{transform:translate(var(--dx),var(--dy)) scale(1.35) rotate(540deg);opacity:0}}
-      }}
-      @keyframes pulse {{
-        0%,100% {{text-shadow:0 0 5px #ff2525;filter:brightness(1)}}
-        50% {{text-shadow:0 0 25px #ff2525,0 0 45px #ff5a00;filter:brightness(1.6)}}
-      }}
-      @keyframes boom {{
-        0% {{transform:scale(.2);opacity:0}}
-        20% {{transform:scale(1.3);opacity:1}}
-        45% {{transform:scale(.9)}}
-        70% {{transform:scale(1.08)}}
-        100% {{transform:scale(1);opacity:1}}
-      }}
-      .overlay {{
-        position:relative;width:100%;height:390px;display:flex;align-items:center;justify-content:center;
-        background:radial-gradient(circle,rgba(255,70,0,.28),rgba(100,0,0,.78));
-        animation:flash 3s ease-out both; border-radius:18px;overflow:hidden;
-      }}
-      .card {{
-        position:relative;overflow:hidden;width:min(96%,700px);padding:22px 14px;text-align:center;color:white;
-        border:3px solid #ff3b30;border-radius:22px;
-        background:linear-gradient(160deg,#520707,#100d18 58%,#8c1800);
-        box-shadow:0 0 42px #ff2400,inset 0 0 38px rgba(255,40,0,.4);
-        animation:pop .7s cubic-bezier(.2,.8,.3,1.3) both,shake .65s ease-in-out .15s 3;
-      }}
-      .title {{font-size:clamp(24px,4.3vw,43px);font-weight:1000;color:#ff4438;animation:pulse .3s infinite}}
-      .headline {{font-size:clamp(17px,2.8vw,25px);font-weight:1000;margin-top:7px;color:#fff}}
-      .boom {{font-size:clamp(54px,10vw,92px);line-height:1.25;filter:drop-shadow(0 0 20px #ff4b00);animation:boom .7s ease-out both}}
-      .message {{font-size:clamp(16px,2.6vw,22px);font-weight:900;margin-top:9px;color:#fff}}
-      .subtitle {{margin-top:10px;color:#ffd4c7;font-size:14px}}
-      .particle {{position:absolute;left:50%;top:50%;font-size:28px;animation:fly 1.8s cubic-bezier(.1,.6,.2,1) both}}
-      .stamp {{display:inline-block;margin-top:12px;padding:6px 13px;border:2px dashed #ff8c42;border-radius:9px;color:#ffccaa;font-weight:900;letter-spacing:2px}}
-    </style></head><body>
-      <div class="overlay"><div class="card">
-        {particle_html}
-        <div class="title">☢️ CRITICAL FAILURE ☢️</div>
-        <div class="boom">💣💥🔥🌋</div>
-        <div class="headline">{safe_headline}</div>
-        <div class="message">{safe_message}</div>
-        <div class="subtitle">SYSTEM ALERT · 궤도 이탈 · 착지 프로토콜 실패</div>
-        <div class="stamp">!!! TOTAL CHAOS !!!</div>
-      </div></div>
-      <script>document.documentElement.dataset.attempt = "{attempt_id}";</script>
-    </body></html>
-    """
-    components.html(html_doc, height=400, scrolling=False)
+    st.markdown(
+        f"""
+        <div class="gd-fullscreen-overlay gd-failure" id="failure-{attempt_id}">
+          <div class="gd-effect-card">
+            {particle_html}
+            <div class="gd-effect-kicker">☢️ CRITICAL FAILURE ☢️</div>
+            <div class="gd-effect-emoji">💣 💥 🔥</div>
+            <div class="gd-effect-headline">{html.escape(headline)}</div>
+            <div class="gd-effect-copy">{html.escape(message)}</div>
+            <div class="gd-effect-copy" style="margin-top:12px;font-weight:800">
+              SYSTEM ALERT · 궤도 이탈 · 착지 프로토콜 실패
+            </div>
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 def show_turtle_effect(attempt_id):
-    """느린 결과일 때 거북이, 경고 표지, 흔들리는 글자를 1.5초 보여준다."""
-    html_doc = f"""
-    <!doctype html><html><head><meta charset="utf-8"><style>
-      * {{box-sizing:border-box}}
-      body {{margin:0;font-family:Arial,sans-serif}}
-      @keyframes turtleRun {{
-        0% {{opacity:0;transform:translateX(-90px) rotate(-12deg)}}
-        12% {{opacity:1;transform:translateX(-35px) rotate(8deg)}}
-        25% {{transform:translateX(15px) rotate(-8deg)}}
-        40% {{transform:translateX(-5px) rotate(6deg)}}
-        60% {{transform:translateX(30px) rotate(-4deg)}}
-        80% {{opacity:1;transform:translateX(55px) rotate(4deg)}}
-        100% {{opacity:0;transform:translateX(110px) rotate(0)}}
-      }}
-      @keyframes wobble {{
-        0%,100% {{transform:rotate(0)}}
-        25% {{transform:rotate(-3deg)}}
-        75% {{transform:rotate(3deg)}}
-      }}
-      @keyframes signPop {{
-        0% {{transform:scale(.1);opacity:0}}
-        35% {{transform:scale(1.2);opacity:1}}
-        65% {{transform:scale(.9)}}
-        100% {{transform:scale(1);opacity:1}}
-      }}
-      .wrap {{
-        height:118px;display:flex;align-items:center;justify-content:center;gap:14px;
-        border-radius:16px;background:linear-gradient(120deg,#e4f4d7,#fff3c4);
-        border:2px solid #76a85b;color:#244b1c;font-weight:900;overflow:hidden;
-      }}
-      .turtle {{font-size:52px;animation:turtleRun 1.5s ease-in-out both}}
-      .text {{font-size:17px;text-align:center;animation:wobble .2s ease-in-out 7}}
-      .sign {{font-size:29px;display:block;animation:signPop .5s ease-out both}}
-      .small {{font-size:12px;color:#426534;margin-top:5px}}
-    </style></head><body>
-      <div class="wrap">
-        <span class="turtle">🐢</span>
-        <div class="text">
-          <span class="sign">🐌 🚧 🐢</span>
-          느림보 경사하강법 출동!
-          <div class="small">조금씩 움직이는 중... 목표까지 천천히!</div>
+    """느린 이동 때 앱 전체에 1.5초 동안 재미있는 거북이 연출을 표시한다."""
+    st.markdown(
+        f"""
+        <div class="gd-fullscreen-overlay gd-turtle-overlay" id="turtle-{attempt_id}">
+          <div class="gd-effect-card gd-turtle-card">
+            <div class="gd-effect-kicker">🐢 TURTLE MODE ACTIVATED 🐢</div>
+            <div class="gd-effect-emoji">🐢</div>
+            <div class="gd-effect-headline">느림보 경사하강법 출동!</div>
+            <div class="gd-effect-copy">
+              목표까지 천천히... 한 걸음씩... 너무 서두르지 마세요!
+            </div>
+            <div class="gd-effect-copy" style="margin-top:10px;font-weight:800">
+              🐌 속도는 느려도 포기하지 않는 중! 🚧
+            </div>
+          </div>
         </div>
-      </div>
-      <script>document.documentElement.dataset.attempt = "{attempt_id}";</script>
-    </body></html>
-    """
-    components.html(html_doc, height=125, scrolling=False)
+        """,
+        unsafe_allow_html=True,
+    )
+
 
 # =========================================================
 # 7. 사이드바 컨트롤
@@ -477,15 +501,18 @@ with score_col:
     else:
         code = result["status_code"]
 
-        # 매 도전의 결과가 저장되면 해당 효과가 렌더링된다.
-        if code in ("explode", "pingpong"):
-            show_failure_effect(result["alpha"], result["attempt_id"])
-        elif (
-            code == "landing"
-            and result["alpha"] <= 0.30
-            and abs(result["final_x"]) >= SUCCESS_THRESHOLD
-        ):
-            show_turtle_effect(result["attempt_id"])
+        # 도전할 때마다 한 번만 효과를 재생한다. 다른 UI 상호작용으로 재실행되지는 않는다.
+        if st.session_state.effect_shown_for_attempt != result["attempt_id"]:
+            if code in ("explode", "pingpong"):
+                show_failure_effect(result["alpha"], result["attempt_id"])
+                st.session_state.effect_shown_for_attempt = result["attempt_id"]
+            elif (
+                code == "landing"
+                and result["alpha"] <= 0.30
+                and abs(result["final_x"]) >= SUCCESS_THRESHOLD
+            ):
+                show_turtle_effect(result["attempt_id"])
+                st.session_state.effect_shown_for_attempt = result["attempt_id"]
 
         if code == "success":
             st.success("🎉 착륙 성공! 목표 위치에 도착했어요.")

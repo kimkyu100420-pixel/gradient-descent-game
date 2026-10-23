@@ -78,11 +78,25 @@ defaults = {
     "xp": 0,
     "quest_notice": None,
     "quests_visible": True,
+    "research_visible": True,
     "animation_token": 0,
 }
 for key, value in defaults.items():
     if key not in st.session_state:
         st.session_state[key] = value
+
+# --------------------------- Top-right navigation buttons ---------------------------
+nav_spacer, nav_research, nav_quests = st.columns([6, 2, 1.6])
+with nav_research:
+    research_label = "📚 도감 숨기기" if st.session_state.research_visible else "📚 움직임 연구도감"
+    if st.button(research_label, key="top_toggle_research", width="stretch"):
+        st.session_state.research_visible = not st.session_state.research_visible
+        st.rerun()
+with nav_quests:
+    quests_label = "🧪 퀘스트 숨기기" if st.session_state.quests_visible else "🧪 퀘스트"
+    if st.button(quests_label, key="top_toggle_quests", type="primary", width="stretch"):
+        st.session_state.quests_visible = not st.session_state.quests_visible
+        st.rerun()
 
 # --------------------------- Game Math ---------------------------
 def run_gradient_descent(x0, alpha, epochs):
@@ -346,18 +360,10 @@ if run_button:
         st.toast("실험 결과를 기록했어요.", icon="🔬")
 
 # --------------------------- Quest dashboard ---------------------------
-st.divider()
-quest_head, quest_toggle = st.columns([4, 1])
-with quest_head:
-    st.header("🧪 연구 퀘스트")
-    st.write("퀘스트를 숨겨도 실험과 점수 기록은 계속 이용할 수 있어요.")
-with quest_toggle:
-    toggle_label = "🙈 퀘스트 숨기기" if st.session_state.quests_visible else "🧪 퀘스트 열기"
-    if st.button(toggle_label, key="toggle_quests", width="stretch"):
-        st.session_state.quests_visible = not st.session_state.quests_visible
-        st.rerun()
-
 if st.session_state.quests_visible:
+    st.divider()
+    st.header("🧪 연구 퀘스트")
+    st.write("퀘스트를 달성한 뒤 버튼을 눌러 경험치를 수령하세요. 연구 도감은 오른쪽 위 버튼으로 따로 열고 닫을 수 있어요.")
     st.write("처음에는 규칙이 숨겨져 있어요. 직접 실험해 현상을 발견하면 해당 규칙이 해금됩니다.")
     xp_col, done_col, rule_col = st.columns(3)
     xp_col.metric("✨ 연구 경험치", f"{st.session_state.xp} XP")
@@ -432,7 +438,11 @@ if st.session_state.quests_visible:
         """, height=250)
         st.session_state.quest_firework = False
 
-    # --------------------------- Rule encyclopedia ---------------------------
+
+
+# --------------------------- Rule encyclopedia ---------------------------
+if st.session_state.research_visible:
+    st.divider()
     st.subheader("📚 학습률 움직임 연구 도감")
     st.caption("발견한 규칙만 공개됩니다. 아직 발견하지 못한 항목은 잠겨 있어요.")
     for rule_id, rule in RULES.items():
@@ -445,9 +455,6 @@ if st.session_state.quests_visible:
             with st.container(border=True):
                 st.markdown(f"### 🔒 미확인 현상 — {len(st.session_state.unlocked_rules)+1:02d}")
                 st.write("규칙이 잠겨 있습니다. 학습률과 이동 횟수를 바꾸어 실험해 보세요.")
-else:
-    st.info("퀘스트와 연구 도감이 숨겨져 있습니다. 다시 보려면 ‘🧪 퀘스트 열기’를 눌러 주세요.")
-
 # --------------------------- Current experiment graph/results ---------------------------
 st.divider()
 graph_col, score_col = st.columns([2, 1])

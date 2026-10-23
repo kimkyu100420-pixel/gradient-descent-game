@@ -72,6 +72,8 @@ defaults = {
     "attempt_id": 0,
     "effect_shown_for_attempt": -1,
     "quests_done": [],
+    "quests_claimed": [],
+    "quest_firework": False,
     "unlocked_rules": [],
     "xp": 0,
     "quest_notice": None,
@@ -282,7 +284,6 @@ if run_button:
     newly_unlocked = []
     if code == "success" and "first_success" not in st.session_state.quests_done:
         st.session_state.quests_done.append("first_success")
-        st.session_state.xp += 100
         newly_unlocked.append("첫 번째 착륙 퀘스트 완료! +100 XP")
 
     if 0 < alpha_input < 0.5 and steps > 0:
@@ -291,7 +292,6 @@ if run_button:
             newly_unlocked.append("규칙 발견: 느린 수렴")
         if "slow" not in st.session_state.quests_done:
             st.session_state.quests_done.append("slow")
-            st.session_state.xp += 80
             newly_unlocked.append("거북이의 비밀 퀘스트 완료! +80 XP")
 
     if np.isclose(alpha_input, 0.5) and code == "success" and steps == 1:
@@ -300,7 +300,6 @@ if run_button:
             newly_unlocked.append("규칙 발견: 한 번의 착륙")
         if "one_step" not in st.session_state.quests_done:
             st.session_state.quests_done.append("one_step")
-            st.session_state.xp += 100
             newly_unlocked.append("원샷 착륙 퀘스트 완료! +100 XP")
 
     if 0.5 < alpha_input < 1.0 and steps >= 2:
@@ -309,7 +308,6 @@ if run_button:
             newly_unlocked.append("규칙 발견: 지그재그 수렴")
         if "zigzag" not in st.session_state.quests_done:
             st.session_state.quests_done.append("zigzag")
-            st.session_state.xp += 100
             newly_unlocked.append("지그재그 탐정 퀘스트 완료! +100 XP")
 
     if np.isclose(alpha_input, 1.0):
@@ -318,7 +316,6 @@ if run_button:
             newly_unlocked.append("규칙 발견: 무한 핑퐁")
         if "pingpong" not in st.session_state.quests_done:
             st.session_state.quests_done.append("pingpong")
-            st.session_state.xp += 100
             newly_unlocked.append("무한 핑퐁 퀘스트 완료! +100 XP")
 
     if alpha_input > 1.0:
@@ -327,17 +324,18 @@ if run_button:
             newly_unlocked.append("규칙 발견: 발산 폭주")
         if "diverge" not in st.session_state.quests_done:
             st.session_state.quests_done.append("diverge")
-            st.session_state.xp += 120
             newly_unlocked.append("폭주 경보 퀘스트 완료! +120 XP")
 
     rule_ids = {"slow", "one_step", "zigzag", "pingpong", "diverge"}
     if rule_ids.issubset(set(st.session_state.unlocked_rules)):
         if "master" not in st.session_state.quests_done:
             st.session_state.quests_done.append("master")
-            st.session_state.xp += 250
             newly_unlocked.append("연구소 마스터 달성! +250 XP")
 
     st.session_state.quest_notice = newly_unlocked
+    completed_notices = [n for n in newly_unlocked if "퀘스트 완료" in n or "마스터 달성" in n]
+    for notice in completed_notices:
+        st.toast(f"퀘스트 달성! {notice} — 퀘스트 버튼에서 XP를 받아 주세요.", icon="🏆")
 
     if code == "success":
         st.balloons()
@@ -373,15 +371,66 @@ if st.session_state.quests_visible:
 
     for quest in QUESTS:
         completed = quest["id"] in st.session_state.quests_done
+        claimed = quest["id"] in st.session_state.quests_claimed
         with st.container(border=True):
             top1, top2 = st.columns([4, 1])
-            top1.markdown(f"### {'✅' if completed else '🔒'} {quest['title']}")
+            top1.markdown(f"### {'🏆' if claimed else '✅' if completed else '🔒'} {quest['title']}")
             top2.markdown(f"**{quest['reward']} XP**")
             st.write(quest["desc"])
-            if completed:
-                st.success("퀘스트 완료")
+            if claimed:
+                st.success("경험치 수령 완료")
+            elif completed:
+                st.success("퀘스트 성공! 아래 버튼을 눌러 경험치를 수령하세요.")
+                if st.button(f"🎁 {quest['reward']} XP 받기", key=f"claim_{quest['id']}", type="primary", width="stretch"):
+                    st.session_state.quests_claimed.append(quest["id"])
+                    st.session_state.xp += quest["reward"]
+                    st.session_state.quest_firework = True
+                    st.rerun()
             else:
                 st.caption("미완료 — 사이드바에서 실험 조건을 바꾸어 도전하세요.")
+
+    # 폭죽 이펙트: 경험치 수령 버튼을 눌렀을 때만 재생
+    if st.session_state.quest_firework:
+        st.balloons()
+        st.toast("경험치 수령 완료! 축하해요!", icon="🎆")
+        components.html("""
+        <div style="position:relative;height:240px;overflow:hidden;border-radius:16px;background:linear-gradient(180deg,#10172b,#182b4a);">
+          <canvas id="fireworks" style="width:100%;height:240px;display:block;"></canvas>
+          <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;color:white;font:800 25px system-ui;text-shadow:0 2px 12px #000;">🎆 XP 획득! 🎆</div>
+        </div>
+        <script>
+        (() => {
+          const canvas = document.getElementById('fireworks');
+          const ctx = canvas.getContext('2d');
+          const dpr = window.devicePixelRatio || 1;
+          const w = canvas.clientWidth, h = 240;
+          canvas.width = w*dpr; canvas.height = h*dpr; ctx.scale(dpr,dpr);
+          const colors = ['#ffdf6b','#ff6b9a','#72e6ff','#b99aff','#7dffb2','#ffffff'];
+          let particles = [];
+          for(let burst=0; burst<7; burst++){
+            const cx = 35 + Math.random()*(w-70), cy = 25 + Math.random()*125;
+            const delay = burst*180;
+            for(let i=0;i<42;i++){
+              const a = Math.PI*2*i/42, speed=1.2+Math.random()*3.4;
+              particles.push({x:cx,y:cy,vx:Math.cos(a)*speed,vy:Math.sin(a)*speed,life:55+Math.random()*25,delay,color:colors[burst%colors.length],r:1.5+Math.random()*2});
+            }
+          }
+          let frame=0;
+          function draw(){
+            ctx.clearRect(0,0,w,h);
+            for(const p of particles){
+              if(frame<p.delay/16) continue;
+              p.x+=p.vx; p.y+=p.vy; p.vy+=0.025; p.vx*=0.992; p.life--;
+              if(p.life>0){ctx.globalAlpha=Math.min(1,p.life/22);ctx.fillStyle=p.color;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill();}
+            }
+            ctx.globalAlpha=1; frame++;
+            if(frame<125) requestAnimationFrame(draw);
+          }
+          draw();
+        })();
+        </script>
+        """, height=250)
+        st.session_state.quest_firework = False
 
     # --------------------------- Rule encyclopedia ---------------------------
     st.subheader("📚 학습률 움직임 연구 도감")

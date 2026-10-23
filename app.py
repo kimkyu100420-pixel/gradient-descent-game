@@ -113,7 +113,7 @@ st.markdown(
         justify-content: center !important;
         overflow: hidden !important;
         pointer-events: none !important;
-        animation: overlayIn 3s ease-in-out both;
+        animation: overlayIn 2.5s ease-in-out both;
         background: radial-gradient(ellipse at center, rgba(135, 12, 0, .70), rgba(35, 0, 0, .82));
     }
     .gd-fullscreen-overlay.gd-failure {
@@ -131,7 +131,7 @@ st.markdown(
         border-radius: 26px;
         background: linear-gradient(145deg, #310b12 0%, #151523 58%, #4a1009 100%);
         box-shadow: 0 0 45px rgba(255, 67, 20, .65), inset 0 0 30px rgba(255, 120, 45, .12);
-        animation: cardIn 3s ease-out both;
+        animation: cardIn 2.5s ease-out both;
     }
     .gd-effect-card * { color: #fff !important; }
     .gd-effect-kicker {
@@ -176,6 +176,98 @@ st.markdown(
     }
     .gd-turtle-card .gd-effect-emoji {
         animation: turtleTraverse 1.5s ease-in-out both;
+    }
+
+    @keyframes successOverlayIn {
+        0% { opacity: 0; }
+        10%, 82% { opacity: 1; }
+        100% { opacity: 0; }
+    }
+    @keyframes confettiLeft {
+        0% { transform: translate(0, 0) rotate(0) scale(.6); opacity: 0; }
+        12% { opacity: 1; }
+        100% { transform: translate(var(--dx), var(--dy)) rotate(720deg) scale(1.15); opacity: 0; }
+    }
+    @keyframes confettiRight {
+        0% { transform: translate(0, 0) rotate(0) scale(.6); opacity: 0; }
+        12% { opacity: 1; }
+        100% { transform: translate(var(--dx), var(--dy)) rotate(-720deg) scale(1.15); opacity: 0; }
+    }
+    @keyframes successCardPop {
+        0% { transform: scale(.55) rotate(-5deg); opacity: 0; }
+        18% { transform: scale(1.08) rotate(2deg); opacity: 1; }
+        30%, 82% { transform: scale(1) rotate(0); opacity: 1; }
+        100% { transform: scale(.97); opacity: 0; }
+    }
+    @keyframes successPulse {
+        0%, 100% { text-shadow: 0 0 8px rgba(255,255,255,.3); }
+        50% { text-shadow: 0 0 22px rgba(255,235,120,.95), 0 0 36px rgba(255,120,180,.65); }
+    }
+    .gd-success-overlay {
+        position: fixed !important;
+        inset: 0 !important;
+        width: 100vw !important;
+        height: 100vh !important;
+        z-index: 2147483000 !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        overflow: hidden !important;
+        pointer-events: none !important;
+        animation: successOverlayIn 2.8s ease-out both;
+        background: radial-gradient(ellipse at center, rgba(16, 95, 64, .62), rgba(7, 38, 47, .78));
+    }
+    .gd-success-card {
+        position: relative;
+        width: min(88vw, 760px);
+        max-height: 82vh;
+        overflow: hidden;
+        padding: clamp(20px, 4vw, 42px);
+        text-align: center;
+        color: #fff !important;
+        border: 3px solid #f9dc75;
+        border-radius: 26px;
+        background: linear-gradient(145deg, #064e3b 0%, #123b5b 55%, #51256c 100%);
+        box-shadow: 0 0 42px rgba(255, 218, 90, .5), inset 0 0 30px rgba(255,255,255,.12);
+        animation: successCardPop 2.8s ease-out both;
+    }
+    .gd-success-card * { color: #fff !important; }
+    .gd-success-kicker {
+        font-size: clamp(25px, 4.5vw, 46px);
+        font-weight: 1000;
+        line-height: 1.2;
+        color: #ffe88a !important;
+        animation: successPulse .65s ease-in-out infinite;
+    }
+    .gd-success-emoji {
+        font-size: clamp(58px, 11vw, 112px);
+        line-height: 1.3;
+        margin: 10px 0;
+        filter: drop-shadow(0 4px 16px rgba(255, 230, 100, .6));
+    }
+    .gd-success-headline {
+        font-size: clamp(20px, 3.4vw, 31px);
+        font-weight: 900;
+        margin: 10px 0;
+    }
+    .gd-success-copy {
+        font-size: clamp(15px, 2vw, 19px);
+        line-height: 1.5;
+        color: #e4fff4 !important;
+    }
+    .gd-success-particle {
+        position: absolute;
+        top: 50%;
+        font-size: clamp(24px, 3.8vw, 42px);
+        opacity: 0;
+    }
+    .gd-success-particle.left {
+        left: 8%;
+        animation: confettiLeft 2.35s cubic-bezier(.12,.65,.2,1) both;
+    }
+    .gd-success-particle.right {
+        right: 8%;
+        animation: confettiRight 2.35s cubic-bezier(.12,.65,.2,1) both;
     }
 
     </style>
@@ -335,6 +427,41 @@ def show_failure_effect(alpha, attempt_id):
             <div class="gd-effect-copy">{html.escape(message)}</div>
             <div class="gd-effect-copy" style="margin-top:12px;font-weight:800">
               SYSTEM ALERT · 궤도 이탈 · 착지 프로토콜 실패
+            </div>
+          </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def show_success_effect(attempt_id):
+    """성공 시 화면 전체에 양쪽 폭죽과 색종이가 터지는 축하 효과."""
+    confetti = [
+        ("🎆", "left", "-5vw", "-35vh"), ("🎇", "left", "18vw", "-28vh"),
+        ("🎉", "left", "32vw", "20vh"), ("✨", "left", "15vw", "34vh"),
+        ("🎊", "left", "38vw", "-5vh"), ("⭐", "left", "28vw", "-18vh"),
+        ("🎆", "right", "5vw", "-35vh"), ("🎇", "right", "-18vw", "-28vh"),
+        ("🎉", "right", "-32vw", "20vh"), ("✨", "right", "-15vw", "34vh"),
+        ("🎊", "right", "-38vw", "-5vh"), ("⭐", "right", "-28vw", "-18vh"),
+        ("🪅", "left", "24vw", "8vh"), ("🥳", "right", "-24vw", "8vh"),
+        ("🌟", "left", "8vw", "-12vh"), ("🌟", "right", "-8vw", "-12vh"),
+    ]
+    particle_html = "".join(
+        f'<span class="gd-success-particle {side}" style="--dx:{dx};--dy:{dy};animation-delay:{i * 0.035}s">{emoji}</span>'
+        for i, (emoji, side, dx, dy) in enumerate(confetti)
+    )
+    st.markdown(
+        f"""
+        <div class="gd-success-overlay" id="success-{attempt_id}">
+          <div class="gd-success-card">
+            {particle_html}
+            <div class="gd-success-kicker">🎉 LANDING SUCCESS! 🎉</div>
+            <div class="gd-success-emoji">🏆 ⚽ 🥳</div>
+            <div class="gd-success-headline">완벽 착륙! 경사하강법 마스터!</div>
+            <div class="gd-success-copy">
+              양쪽에서 폭죽 발사! 🎆 목표 지점에 정확히 도착했어요!<br>
+              축하합니다 — 최고 점수 100점!
             </div>
           </div>
         </div>
@@ -503,7 +630,10 @@ with score_col:
 
         # 도전할 때마다 한 번만 효과를 재생한다. 다른 UI 상호작용으로 재실행되지는 않는다.
         if st.session_state.effect_shown_for_attempt != result["attempt_id"]:
-            if code in ("explode", "pingpong"):
+            if code == "success":
+                show_success_effect(result["attempt_id"])
+                st.session_state.effect_shown_for_attempt = result["attempt_id"]
+            elif code in ("explode", "pingpong"):
                 show_failure_effect(result["alpha"], result["attempt_id"])
                 st.session_state.effect_shown_for_attempt = result["attempt_id"]
             elif (

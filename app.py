@@ -448,105 +448,117 @@ with graph_col:
                 "step": i,
             })
 
-        # Build an animated Plotly graph inside one self-contained component.
-        # Graph and animation share the same iframe, so autoplay does not depend on cross-frame access.
-        fig = go.Figure()
-        fig.add_trace(go.Scatter(
-            x=curve_x, y=curve_x**2, mode="lines",
-            line=dict(color="#667085", width=3), name="이차함수 f(x)=x²",
-            hoverinfo="skip"))
-        fig.add_trace(go.Scatter(
-            x=frame_payload[0]["x"], y=frame_payload[0]["y"],
-            mode="lines+markers",
-            line=dict(color="#D62728", width=3),
-            marker=dict(size=9, color="#D62728", symbol="circle",
-                        line=dict(color="#7F1D1D", width=1)),
-            name="이동하며 찍힌 점",
-            hovertemplate="위치 x: %{x:.5f}<br>함숫값 y=x²: %{y:.5f}<extra></extra>"))
-        fig.add_trace(go.Scatter(
-            x=[frame_payload[0]["ball_x"]], y=[frame_payload[0]["ball_y"]],
-            mode="text", text=["⚽"], textposition="middle center",
-            textfont=dict(size=25, color="#172033"), name="축구공",
-            hovertemplate="축구공 위치: (%{x:.5f}, %{y:.5f})<extra></extra>"))
-        fig.add_trace(go.Scatter(
-            x=[0], y=[0], mode="markers",
-            marker=dict(size=16, color="#F4B400", symbol="star",
-                        line=dict(color="#8A5A00", width=1)),
-            name="목표 지점"))
-
-        frames = []
-        for i, frame in enumerate(frame_payload):
-            frames.append(go.Frame(
-                name=str(i),
-                data=[
-                    go.Scatter(
-                        x=frame["x"], y=frame["y"], mode="lines+markers",
-                        line=dict(color="#D62728", width=3),
-                        marker=dict(size=9, color="#D62728", symbol="circle",
-                                    line=dict(color="#7F1D1D", width=1)),
-                        name="이동하며 찍힌 점"),
-                    go.Scatter(
-                        x=[frame["ball_x"]], y=[frame["ball_y"]],
-                        mode="text", text=["⚽"], textposition="middle center",
-                        textfont=dict(size=25, color="#172033"), name="축구공"),
-                ],
-                traces=[1, 2],
-                layout=go.Layout(title_text=f"이동 단계 {frame['step']} / {len(frame_payload)-1}"),
-            ))
-        fig.frames = frames
-        fig.update_layout(
-            title_text=f"이동 단계 0 / {len(frame_payload)-1}",
-            xaxis_title="공의 위치 (x)", yaxis_title="함숫값 y=x²",
-            xaxis=dict(range=[-12, 12], zeroline=True, fixedrange=True),
-            yaxis=dict(range=[-5, 150], zeroline=True, fixedrange=True),
-            height=540, margin=dict(l=15, r=15, t=55, b=15),
-            plot_bgcolor="#fff", paper_bgcolor="#fff",
-            font=dict(color="#172033"), showlegend=True,
-            legend=dict(orientation="h", y=1.12, x=0),
-            uirevision="fixed-gradient-graph",
-        )
-
-        frame_duration = 550  # 자동 속도: 사용자 조절 없음
-        figure_json = fig.to_json()
-        figure_json_for_html = json.dumps(figure_json)
+        # Canvas animation: no external CDN dependency; points are drawn on the exact y=x² curve.
+        animation_points = [{"x": float(x), "y": float(x) ** 2} for x in xs_anim]
+        points_json = json.dumps(animation_points, ensure_ascii=False)
         components.html(
             f"""
-            <div id="gd-graph" style="width:100%;height:555px;position:relative;">
-              <div id="gd-loading" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#fff;color:#34445e;font:600 16px sans-serif;z-index:2;">
-                ⚽ 실험 결과를 준비하고 있어요…
-              </div>
-              <div id="gd-plot" style="width:100%;height:100%;"></div>
+            <div id="gd-wrap" style="width:100%;height:555px;background:#fff;border-radius:12px;overflow:hidden;position:relative;">
+              <canvas id="gd-canvas" style="width:100%;height:100%;display:block;"></canvas>
+              <div id="gd-status" style="position:absolute;left:12px;bottom:8px;background:rgba(255,255,255,.92);padding:5px 9px;border-radius:8px;font:13px sans-serif;color:#34445e;">⚽ 준비 중…</div>
             </div>
-            <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
             <script>
-            (async function() {{
-              const graphEl = document.getElementById('gd-plot');
-              const loading = document.getElementById('gd-loading');
-              const figureJson = JSON.parse({figure_json_for_html});
-              const fig = JSON.parse(figureJson);
-              await Plotly.newPlot(graphEl, fig.data, fig.layout, {{
-                responsive: true, displayModeBar: false, scrollZoom: false
-              }});
-              await Plotly.addFrames(graphEl, fig.frames || []);
-              loading.style.display = 'none';
-              if (fig.frames && fig.frames.length > 1) {{
-                await Plotly.animate(graphEl, null, {{
-                  frame: {{duration: {frame_duration}, redraw: true}},
-                  transition: {{duration: 0}},
-                  fromcurrent: false,
-                  mode: 'immediate'
-                }});
+            (() => {{
+              const points = {points_json};
+              const wrap = document.getElementById('gd-wrap');
+              const canvas = document.getElementById('gd-canvas');
+              const status = document.getElementById('gd-status');
+              const ctx = canvas.getContext('2d');
+              const xMin=-12, xMax=12, yMin=-5, yMax=150;
+              let frame=0, lastTick=0, finished=false;
+              const frameMs=550;
+              function dims() {{
+                const r=wrap.getBoundingClientRect();
+                return {{w:r.width,h:r.height,left:62,right:20,top:28,bottom:48}};
               }}
-            }})().catch((err) => {{
-              const loading = document.getElementById('gd-loading');
-              if (loading) loading.textContent = '애니메이션을 불러오지 못했어요. 페이지를 새로고침해 주세요.';
-            }});
+              function px(x,d) {{ return d.left+(x-xMin)/(xMax-xMin)*(d.w-d.left-d.right); }}
+              function py(y,d) {{ return d.top+(yMax-y)/(yMax-yMin)*(d.h-d.top-d.bottom); }}
+              function resize() {{
+                const dpr=window.devicePixelRatio||1, r=wrap.getBoundingClientRect();
+                canvas.width=Math.max(1,Math.round(r.width*dpr));
+                canvas.height=Math.max(1,Math.round(r.height*dpr));
+                ctx.setTransform(dpr,0,0,dpr,0,0); draw();
+              }}
+              function draw() {{
+                const d=dims(), w=d.w, h=d.h;
+                ctx.clearRect(0,0,w,h); ctx.fillStyle='#fff'; ctx.fillRect(0,0,w,h);
+                ctx.font='12px sans-serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+                ctx.strokeStyle='#e5eaf0'; ctx.lineWidth=1;
+                for(let y=0;y<=140;y+=20) {{
+                  const yy=py(y,d); ctx.beginPath();ctx.moveTo(d.left,yy);ctx.lineTo(w-d.right,yy);ctx.stroke();
+                  ctx.fillStyle='#68758a';ctx.fillText(String(y),d.left-22,yy);
+                }}
+                for(let x=-10;x<=10;x+=5) {{
+                  const xx=px(x,d);ctx.beginPath();ctx.moveTo(xx,d.top);ctx.lineTo(xx,h-d.bottom);ctx.stroke();
+                  ctx.fillStyle='#68758a';ctx.fillText(String(x),xx,h-d.bottom+17);
+                }}
+                ctx.strokeStyle='#475569';ctx.lineWidth=1.4;
+                ctx.beginPath();ctx.moveTo(px(0,d),d.top);ctx.lineTo(px(0,d),h-d.bottom);ctx.stroke();
+                ctx.beginPath();ctx.moveTo(d.left,py(0,d));ctx.lineTo(w-d.right,py(0,d));ctx.stroke();
+                ctx.beginPath();
+                for(let i=0;i<=500;i++) {{
+                  const x=xMin+(xMax-xMin)*i/500,y=x*x;
+                  if(i===0)ctx.moveTo(px(x,d),py(y,d));else ctx.lineTo(px(x,d),py(y,d));
+                }}
+                ctx.strokeStyle='#68758a';ctx.lineWidth=3;ctx.stroke();
+                const gx=px(0,d),gy=py(0,d);ctx.beginPath();
+                for(let i=0;i<10;i++) {{
+                  const rr=i%2===0?10:4.5, a=-Math.PI/2+i*Math.PI/5;
+                  const sx=gx+Math.cos(a)*rr,sy=gy+Math.sin(a)*rr;
+                  if(i===0)ctx.moveTo(sx,sy);else ctx.lineTo(sx,sy);
+                }}
+                ctx.closePath();ctx.fillStyle='#f4b400';ctx.fill();ctx.strokeStyle='#8a5a00';ctx.stroke();
+                const shown=points.slice(0,Math.min(frame+1,points.length));
+                if(shown.length) {{
+                  ctx.beginPath();
+                  shown.forEach((p,i)=>{{if(i===0)ctx.moveTo(px(p.x,d),py(p.y,d));else ctx.lineTo(px(p.x,d),py(p.y,d));}});
+                  ctx.strokeStyle='#d62828';ctx.lineWidth=2.5;ctx.stroke();
+                  shown.forEach(p=>{{ctx.beginPath();ctx.arc(px(p.x,d),py(p.y,d),4.5,0,Math.PI*2);ctx.fillStyle='#d62828';ctx.fill();ctx.strokeStyle='#7f1d1d';ctx.lineWidth=1;ctx.stroke();}});
+                  const ball=shown[shown.length-1];
+                  ctx.font='26px "Apple Color Emoji","Segoe UI Emoji",sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+                  ctx.fillText('⚽',px(ball.x,d),py(ball.y,d));
+                }}
+                ctx.fillStyle='#34445e';ctx.font='bold 13px sans-serif';ctx.textAlign='center';
+                ctx.fillText('공의 위치 x',(d.left+w-d.right)/2,h-12);
+                ctx.save();ctx.translate(16,(d.top+h-d.bottom)/2);ctx.rotate(-Math.PI/2);ctx.fillText('함숫값 y = x²',0,0);ctx.restore();
+                ctx.fillStyle='#172033';ctx.font='bold 14px sans-serif';ctx.textAlign='left';
+                ctx.fillText('이동 단계 '+Math.min(frame+1,points.length)+' / '+points.length,d.left,14);
+              }}
+              function advanceOneStep() {{
+                if (finished) return;
+                if (frame < points.length - 1) frame += 1;
+                draw();
+                status.textContent = frame >= points.length - 1
+                  ? '✅ 이동 애니메이션 완료'
+                  : '⚽ 공이 포물선을 따라 이동 중…';
+                if (frame >= points.length - 1) {{
+                  finished = true;
+                  if (timerHandle) window.clearInterval(timerHandle);
+                }}
+              }}
+              let timerHandle = null;
+              try {{
+                resize();
+                status.textContent = points.length > 1
+                  ? '⚽ 공이 포물선을 따라 이동 중…'
+                  : '✅ 이동 완료';
+                if (points.length > 1) {{
+                  timerHandle = window.setInterval(advanceOneStep, frameMs);
+                }} else {{
+                  finished = true;
+                }}
+                if (window.ResizeObserver) new ResizeObserver(resize).observe(wrap);
+                else window.addEventListener('resize', resize);
+              }} catch (err) {{
+                status.textContent = '애니메이션 오류: ' + (err && err.message ? err.message : String(err));
+              }}
+            }})();
             </script>
             """,
             height=565,
             scrolling=False,
         )
-        st.caption("실험을 실행하면 자동 재생됩니다. 축구공은 y=x² 위를 따라 움직이고, 지나간 위치마다 빨간 점이 찍힙니다. 좌표축은 고정됩니다.")
+        st.caption("실험 실행 시 자동 재생됩니다. 축구공은 이차함수 y=x² 위를 따라 이동하고, 방문한 위치마다 점이 남습니다. 좌표축은 고정됩니다.")
 
     if result is not None and abs(result["final_x"]) > 12:
         st.warning("공이 그래프 표시 범위 밖으로 나갔어요. 오른쪽 결과에서 최종 위치를 확인하세요.")

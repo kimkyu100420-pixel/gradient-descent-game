@@ -1,5 +1,6 @@
 
 import html
+import math
 
 import numpy as np
 import pandas as pd
@@ -8,7 +9,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 # =========================================================
-# 1. 페이지 설정
+# 1. 설정
 # =========================================================
 st.set_page_config(
     page_title="AI 경사하강법 미니게임",
@@ -21,152 +22,355 @@ SUCCESS_THRESHOLD = 1e-5
 CLIP_LIMIT = 1e5
 
 # =========================================================
-# 2. 디자인
+# 2. 디자인 + 폭발 애니메이션 CSS
 # =========================================================
 st.markdown(
     """
     <style>
     @import url('https://fonts.googleapis.com/css2?family=Jua&display=swap');
 
-    [data-testid="stAppViewContainer"] > .main {
-        background: linear-gradient(
-            180deg, #DDF2FF 0%, #F0F8FF 48%, #F4F8EC 100%
-        );
+    .stApp {
+        background: #F1F5F9;
+        color: #172033;
+    }
+
+    [data-testid="stAppViewContainer"] {
+        background: #F1F5F9;
+        color: #172033;
+    }
+
+    [data-testid="stHeader"] {
+        background: rgba(241,245,249,0.95);
     }
 
     [data-testid="stSidebar"] {
-        background: linear-gradient(
-            180deg, #D5F2D5 0%, #A8DDB0 100%
-        );
+        background: #DCE7F3;
+        border-right: 1px solid #B6C8DC;
+    }
+
+    [data-testid="stSidebar"] * {
+        color: #172033 !important;
     }
 
     h1, h2, h3 {
-        font-family: 'Jua', sans-serif;
+        font-family: 'Jua', sans-serif !important;
+        color: #142B4A !important;
+    }
+
+    p, li, label, .stMarkdown {
+        color: #243247;
+    }
+
+    [data-testid="stMetric"] {
+        background: #FFFFFF;
+        border: 1px solid #CAD5E2;
+        border-radius: 12px;
+        padding: 12px;
+    }
+
+    [data-testid="stMetricLabel"],
+    [data-testid="stMetricValue"],
+    [data-testid="stMetricDelta"] {
+        color: #172033 !important;
+    }
+
+    [data-testid="stDataFrame"] {
+        background: #FFFFFF;
     }
 
     div[data-testid="stButton"] button,
     div[data-testid="stDownloadButton"] button {
-        border-radius: 18px;
-        font-family: 'Jua', sans-serif;
+        border-radius: 12px;
         font-weight: 700;
+        border: 1px solid #244B78;
     }
 
-    div[data-testid="stMetric"] {
-        background-color: rgba(255,255,255,0.7);
-        border-radius: 14px;
-        padding: 8px;
+    [data-testid="stExpander"] {
+        background: #FFFFFF;
+        border: 1px solid #CAD5E2;
+        border-radius: 12px;
+    }
+
+    input, textarea {
+        color: #172033 !important;
+        background: #FFFFFF !important;
+    }
+
+    [data-testid="stCaptionContainer"] {
+        color: #45566D !important;
+    }
+
+    .hero {
+        background: linear-gradient(135deg, #15345B, #285C91);
+        padding: 26px;
+        border-radius: 16px;
+        margin-bottom: 16px;
+    }
+
+    .hero h1 {
+        color: #FFFFFF !important;
+        margin: 0;
+    }
+
+    .hero p {
+        color: #FFFFFF !important;
+        font-size: 17px;
+        margin-bottom: 0;
+    }
+
+    /* =============================================
+       💥 실패 이펙트
+       ============================================= */
+
+    .failure-overlay {
+        position: fixed;
+        inset: 0;
+        z-index: 999999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        pointer-events: none;
+        background: rgba(110, 0, 0, 0);
+        animation: red-flash 2.6s ease-out both;
+    }
+
+    .failure-content {
+        width: min(92vw, 850px);
+        text-align: center;
+        padding: 30px 20px;
+        border: 4px solid #FF2929;
+        border-radius: 25px;
+        background:
+            radial-gradient(
+                circle at center,
+                rgba(130, 0, 0, 0.98),
+                rgba(25, 0, 0, 0.97) 75%
+            );
+        box-shadow:
+            0 0 30px #FF0000,
+            0 0 80px #FF2A00,
+            inset 0 0 35px rgba(255, 80, 0, 0.55);
+        animation: shake-screen 0.12s linear 12,
+                   pop-in 0.35s cubic-bezier(.2,1.8,.4,1) both;
+    }
+
+    .failure-warning {
+        font-family: 'Jua', sans-serif;
+        color: #FFE8A3;
+        font-size: clamp(22px, 5vw, 48px);
+        font-weight: 900;
+        text-shadow:
+            0 0 10px #FF0000,
+            3px 3px 0 #720000;
+        animation: warning-blink 0.25s steps(2) 8;
+    }
+
+    .failure-boom {
+        font-size: clamp(65px, 14vw, 150px);
+        line-height: 1.2;
+        margin: 8px 0;
+        filter: drop-shadow(0 0 22px #FF5A00);
+        animation: boom-grow 0.65s cubic-bezier(.1,1.8,.3,1) both;
+    }
+
+    .failure-message {
+        color: #FFFFFF;
+        font-family: 'Jua', sans-serif;
+        font-size: clamp(20px, 4vw, 38px);
+        font-weight: 900;
+        text-shadow: 0 0 12px #FF2B00;
+        margin-top: 8px;
+    }
+
+    .failure-subtitle {
+        color: #FFD6D6;
+        font-size: clamp(13px, 2.2vw, 20px);
+        margin-top: 12px;
+    }
+
+    .failure-particles {
+        position: absolute;
+        inset: 0;
+        overflow: hidden;
+    }
+
+    .failure-particle {
+        position: absolute;
+        font-size: clamp(22px, 4vw, 48px);
+        animation: particle-fly 1.5s ease-out both;
+        filter: drop-shadow(0 0 8px #FF3300);
+    }
+
+    .failure-particle:nth-child(1) {
+        left: 8%; top: 15%; --dx: 130px; --dy: 160px;
+    }
+    .failure-particle:nth-child(2) {
+        left: 82%; top: 10%; --dx: -150px; --dy: 190px;
+    }
+    .failure-particle:nth-child(3) {
+        left: 15%; top: 75%; --dx: 180px; --dy: -160px;
+    }
+    .failure-particle:nth-child(4) {
+        left: 80%; top: 75%; --dx: -180px; --dy: -180px;
+    }
+    .failure-particle:nth-child(5) {
+        left: 48%; top: 8%; --dx: 25px; --dy: 200px;
+    }
+    .failure-particle:nth-child(6) {
+        left: 48%; top: 85%; --dx: -40px; --dy: -200px;
+    }
+    .failure-particle:nth-child(7) {
+        left: 3%; top: 45%; --dx: 200px; --dy: 0px;
+    }
+    .failure-particle:nth-child(8) {
+        left: 90%; top: 48%; --dx: -200px; --dy: 0px;
+    }
+
+    @keyframes red-flash {
+        0%, 12%, 28%, 42% {
+            background: rgba(255, 0, 0, 0.72);
+        }
+        6%, 20%, 35% {
+            background: rgba(255, 230, 0, 0.22);
+        }
+        60% {
+            background: rgba(90, 0, 0, 0.5);
+        }
+        100% {
+            background: rgba(0, 0, 0, 0);
+        }
+    }
+
+    @keyframes shake-screen {
+        0%   { transform: translate(0, 0) rotate(0deg); }
+        20%  { transform: translate(-13px, 5px) rotate(-1deg); }
+        40%  { transform: translate(13px, -5px) rotate(1deg); }
+        60%  { transform: translate(-9px, -3px) rotate(-0.7deg); }
+        80%  { transform: translate(9px, 3px) rotate(0.7deg); }
+        100% { transform: translate(0, 0) rotate(0deg); }
+    }
+
+    @keyframes pop-in {
+        0%   { transform: scale(0.1) rotate(-12deg); opacity: 0; }
+        70%  { transform: scale(1.08) rotate(3deg); opacity: 1; }
+        100% { transform: scale(1) rotate(0deg); opacity: 1; }
+    }
+
+    @keyframes boom-grow {
+        0%   { transform: scale(0.05) rotate(-25deg); opacity: 0; }
+        55%  { transform: scale(1.5) rotate(12deg); opacity: 1; }
+        75%  { transform: scale(0.85) rotate(-5deg); }
+        100% { transform: scale(1) rotate(0deg); opacity: 1; }
+    }
+
+    @keyframes warning-blink {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.25; }
+    }
+
+    @keyframes particle-fly {
+        0% {
+            transform: translate(0, 0) scale(0.2) rotate(0deg);
+            opacity: 0;
+        }
+        20% { opacity: 1; }
+        100% {
+            transform: translate(var(--dx), var(--dy))
+                       scale(1.5) rotate(300deg);
+            opacity: 0;
+        }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        .failure-overlay,
+        .failure-content,
+        .failure-warning,
+        .failure-boom,
+        .failure-particle {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+        }
     }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
-# =========================================================
-# 3. 제목과 게임 안내
-# =========================================================
 st.markdown(
     """
-    <div style="
-        background:linear-gradient(135deg,#234B87,#3877B8);
-        padding:26px;
-        border-radius:18px;
-        margin-bottom:14px;
-        box-shadow:0 5px 15px rgba(0,0,0,0.15);
-    ">
-        <h1 style="color:white;margin:0;">
-            ⚽ AI 경사하강법: 골짜기 착륙 챌린지
-        </h1>
-        <p style="color:#FFF0B5;font-size:18px;margin:12px 0 0 0;">
-            보폭을 잘못 조절하면 공이 우주까지 날아갑니다!
-        </p>
+    <div class="hero">
+        <h1>⚽ AI 경사하강법: 골짜기 착륙 챌린지</h1>
+        <p>학습률과 이동 횟수를 조절해 공을 목표 지점에 착륙시키세요.</p>
     </div>
     """,
     unsafe_allow_html=True,
 )
 
-st.info(
-    "🎯 미션: 공을 골짜기 바닥의 목표 지점 0에 정확히 착륙시키세요. "
-    "시작 위치는 모두 같고, 학습률과 발걸음 수만 조절할 수 있어요."
-)
+# =========================================================
+# 3. 게임 안내
+# =========================================================
+with st.expander("🎮 게임 방법", expanded=True):
+    c1, c2, c3 = st.columns(3)
 
-with st.expander("🎮 게임 방법 — 처음이라면 꼭 읽어 보세요", expanded=True):
-    guide1, guide2, guide3 = st.columns(3)
-
-    with guide1:
+    with c1:
         st.markdown(
             """
-            ### 📍 시작 위치
+            **📍 시작 위치**
 
-            모두 **8.0**에서 출발해요.
-
-            공정한 경쟁을 위해 출발 위치는 바꿀 수 없어요.
+            모든 플레이어는 8.0에서 출발해요.
             """
         )
 
-    with guide2:
+    with c2:
         st.markdown(
             """
-            ### 👟 학습률 = 보폭
+            **👟 학습률 = 보폭**
 
-            공이 한 번 움직일 때의 크기예요.
-
-            - 너무 작으면 느려요.
-            - 적당하면 목표에 가까워져요.
-            - 너무 크면 목표를 지나쳐 튕겨 나가요.
+            한 번 이동할 때 얼마나 크게 움직일지 정해요.
+            너무 크면 목표를 지나칠 수 있어요.
             """
         )
 
-    with guide3:
+    with c3:
         st.markdown(
             """
-            ### 🔁 발걸음 수
+            **🔁 발걸음 수 = 이동 기회**
 
-            공을 움직이는 횟수예요.
-
-            횟수가 적으면 목표에 도착하기 전에 끝날 수 있어요.
+            공의 위치를 최대 몇 번 갱신할지 정해요.
             """
         )
 
-    st.markdown("---")
     st.markdown(
         """
-        **실험 힌트**
+        **학습률별 움직임**
 
-        - 학습률 `0.10`: 조금씩 목표에 접근
-        - 학습률 `0.50`: 좌우로 같은 거리만큼 튕김
-        - 학습률 `1.00`: 공이 매번 반대편으로 이동하며 거리가 유지됨
-        - 학습률 `1.20`: 매번 더 멀리 튕겨 나감
-
-        **🏁 성공 조건:** 마지막 위치가 0에서 `0.00001`보다 가까워야 해요.
+        - `0.05~0.49`: 목표를 향해 수렴
+        - `0.50`: 한 번에 목표에 도착
+        - `0.51~0.99`: 목표를 넘나들며 수렴
+        - `1.00`: 같은 거리로 계속 튕김
+        - `1.00 초과`: 점점 멀리 발산
         """
     )
 
 # =========================================================
-# 4. 세션 상태
+# 4. 개인 기록 상태
 # =========================================================
-if "experiment_data" not in st.session_state:
-    st.session_state.experiment_data = []
+if "personal_records" not in st.session_state:
+    st.session_state.personal_records = []
 
 if "last_result" not in st.session_state:
     st.session_state.last_result = None
 
 # =========================================================
-# 5. 경사하강법 엔진
+# 5. 경사하강법 계산
 # =========================================================
-def loss_function(x):
-    return x ** 2
-
-
 def run_gradient_descent(x0, alpha, epochs):
-    """
-    f(x) = x²
-    f'(x) = 2x
-    x_next = x - alpha * 2x
-    """
     x = float(x0)
     x_history = [x]
-    y_history = [loss_function(x)]
+    y_history = [x * x]
     overflow = False
+    actual_steps = 0
 
     for _ in range(int(epochs)):
         x_next = x - alpha * (2.0 * x)
@@ -174,28 +378,30 @@ def run_gradient_descent(x0, alpha, epochs):
         if not np.isfinite(x_next) or abs(x_next) > CLIP_LIMIT:
             overflow = True
 
-            # 그래프에 발산 방향이 드러나도록 마지막 위치를 제한
-            if not np.isfinite(x_next):
-                direction = np.sign(x) * np.sign(1 - 2 * alpha)
-                if direction == 0:
-                    direction = 1
+            if np.isfinite(x_next):
+                direction = 1.0 if x_next >= 0 else -1.0
             else:
-                direction = np.sign(x_next)
+                direction = 1.0 if x >= 0 else -1.0
+                if alpha > 1:
+                    direction *= -1.0
 
-            x_next = float(direction * CLIP_LIMIT)
+            x_next = direction * CLIP_LIMIT
 
             x_history.append(x_next)
             y_history.append(CLIP_LIMIT ** 2)
+            actual_steps += 1
             break
 
         x = float(x_next)
         x_history.append(x)
-        y_history.append(loss_function(x))
+        y_history.append(x * x)
+        actual_steps += 1
 
     return (
-        np.array(x_history, dtype=float),
-        np.array(y_history, dtype=float),
+        np.array(x_history),
+        np.array(y_history),
         overflow,
+        actual_steps,
     )
 
 
@@ -203,106 +409,102 @@ def classify_result(alpha, final_x, overflow):
     if overflow or not np.isfinite(final_x):
         return "우주폭발", "explode"
 
-    # α = 1이면 x_next = -x.
-    # 위치가 좌우로 바뀌지만 거리는 줄어들지 않음.
-    if np.isclose(alpha, 1.0, atol=1e-8):
-        return "무한핑퐁", "pingpong"
-
-    # α > 1이면 위치의 절댓값이 매번 증가
     if alpha > 1.0:
         return "우주폭발", "explode"
 
-    # α = 0.5이면 x_next = 0.
-    # 단, 0.5는 학습률 슬라이더에서 선택 가능.
+    if np.isclose(alpha, 1.0, atol=1e-8):
+        return "무한 핑퐁", "pingpong"
+
     if abs(final_x) < SUCCESS_THRESHOLD:
-        return "착륙성공", "success"
+        return "착륙 성공", "success"
 
-    return "착륙중", "landing"
+    if alpha > 0.5:
+        return "지그재그 수렴 중", "oscillating"
+
+    return "아직 착륙 중", "landing"
 
 
-def calc_score(final_x):
-    """최종 위치가 목표 0에 가까울수록 높은 점수."""
+def calc_score(final_x, status_code):
+    if status_code == "success":
+        return 100
+
     if not np.isfinite(final_x):
         return 0
 
-    score = 100 - int(abs(final_x) * 10)
-    return max(0, min(100, score))
-
-
-def safe_nickname(value):
-    value = str(value).strip() or "익명"
-    return html.escape(value[:20])
+    score = int(99 * math.exp(-abs(final_x) / 2.0))
+    return max(0, min(99, score))
 
 
 # =========================================================
 # 6. 게임 컨트롤러
 # =========================================================
 st.sidebar.header("🎮 게임 컨트롤러")
-st.sidebar.caption("모두 같은 위치에서 출발해요!")
+st.sidebar.caption("출발 위치는 모두 같아요.")
 
 nickname_input = st.sidebar.text_input(
-    "🏷️ 플레이어 닉네임",
+    "플레이어 닉네임",
     value="익명",
     max_chars=20,
 )
 
-st.sidebar.metric("📍 공의 시작 위치", "8.0 (고정)")
+st.sidebar.metric("📍 시작 위치", "8.0 (고정)")
 
 st.sidebar.markdown("---")
-st.sidebar.subheader("👟 1. 학습률 — 공의 보폭")
+st.sidebar.subheader("👟 학습률 — 보폭")
 
 alpha_input = st.sidebar.slider(
-    "학습률",
+    "한 번에 움직이는 크기",
     min_value=0.05,
     max_value=1.50,
-    value=0.50,
+    value=0.80,
     step=0.05,
     format="%.2f",
-    help="공이 한 번에 움직이는 크기예요. 너무 크면 점점 멀리 튕겨 나가요.",
 )
 
-if alpha_input < 0.15:
-    st.sidebar.caption("🐢 보폭이 작아요. 여러 번 움직여야 목표에 가까워질 수 있어요.")
-elif alpha_input < 0.45:
-    st.sidebar.caption("⚖️ 조금씩 이동해요. 발걸음 수를 조절해 보세요.")
-elif np.isclose(alpha_input, 0.50):
-    st.sidebar.caption("↔️ 공이 반대편으로 튕기지만 점점 목표에 가까워지진 않아요.")
-elif np.isclose(alpha_input, 1.00):
-    st.sidebar.caption("🏓 무한 핑퐁! 좌우로 튕기며 거리도 그대로 유지돼요.")
-elif alpha_input < 1.00:
-    st.sidebar.caption("⚠️ 보폭이 커지고 있어요. 공의 이동 경로를 확인하세요.")
+if alpha_input < 0.5:
+    st.sidebar.caption("🟢 목표를 향해 한쪽에서 접근해요.")
+elif np.isclose(alpha_input, 0.5):
+    st.sidebar.caption("🎯 이론상 한 번에 목표에 도착해요.")
+elif alpha_input < 1.0:
+    st.sidebar.caption("🟠 목표를 넘나들지만 이동 거리는 줄어들어요.")
+elif np.isclose(alpha_input, 1.0):
+    st.sidebar.caption("🔁 같은 거리로 좌우 핑퐁!")
 else:
-    st.sidebar.caption("💥 위험! 공이 매번 더 멀리 튕겨 나가는 구간이에요.")
+    st.sidebar.caption("💥 매번 더 멀리 튕겨 나가요.")
 
 st.sidebar.markdown("---")
-st.sidebar.subheader("🔁 2. 발걸음 수 — 이동 횟수")
+st.sidebar.subheader("🔁 발걸음 수")
 
 epochs_input = st.sidebar.slider(
-    "공을 움직일 횟수",
+    "최대 이동 횟수",
     min_value=1,
     max_value=10,
     value=5,
     step=1,
-    help="공을 몇 번 움직일지 정해요.",
 )
 
 st.sidebar.caption(
-    f"현재 설정: 학습률 {alpha_input:.2f} · {epochs_input}회 이동"
+    f"학습률 {alpha_input:.2f} · 최대 {epochs_input}회 이동"
 )
 
 run_button = st.sidebar.button(
     "⚽ 도전 시작!",
-    width="stretch",
     type="primary",
+    width="stretch",
 )
 
+# 이번 실행에서만 폭발 연출을 보여주는 변수
+show_failure_effect = False
+failure_title = "CRITICAL FAILURE"
+failure_message = "착지 실패! 경사하강법 대참사 발생!"
+
 # =========================================================
-# 7. 실행 및 기록 저장
+# 7. 실행 및 개인 기록 저장
 # =========================================================
 if run_button:
-    nickname = safe_nickname(nickname_input)
+    nickname = html.escape(nickname_input.strip() or "익명")
 
-    x_hist, y_hist, overflow = run_gradient_descent(
+    x_hist, y_hist, overflow, actual_steps = run_gradient_descent(
         START_X,
         alpha_input,
         epochs_input,
@@ -317,63 +519,118 @@ if run_button:
         overflow,
     )
 
-    st.session_state.experiment_data.append(
-        {
-            "닉네임": nickname,
-            "학습률(α)": float(alpha_input),
-            "시작위치(x0)": START_X,
-            "발걸음수": int(epochs_input),
-            "최종위치": final_x,
-            "최종Loss": final_loss,
-            "결과상태": status_label,
-        }
-    )
+    score = calc_score(final_x, status_code)
 
-    st.session_state.last_result = {
+    result = {
         "nickname": nickname,
+        "alpha": float(alpha_input),
+        "epochs": int(epochs_input),
+        "actual_steps": int(actual_steps),
         "x_history": x_hist,
         "y_history": y_hist,
         "final_x": final_x,
         "final_loss": final_loss,
-        "initial_loss": float(y_hist[0]),
-        "alpha": float(alpha_input),
-        "epochs": int(epochs_input),
-        "status_code": status_code,
         "status_label": status_label,
+        "status_code": status_code,
+        "score": score,
         "overflow": overflow,
     }
 
+    st.session_state.last_result = result
+
+    st.session_state.personal_records.append(
+        {
+            "닉네임": nickname,
+            "학습률": alpha_input,
+            "최대 이동 횟수": epochs_input,
+            "실제 이동 횟수": actual_steps,
+            "최종 위치": final_x,
+            "최종 Loss": final_loss,
+            "점수": score,
+            "결과": status_label,
+        }
+    )
+
     if status_code == "success":
         st.balloons()
-        st.toast("착륙 성공! 정확하게 도착했어요!", icon="🎉")
-    elif status_code == "explode":
-        st.toast("공이 우주로 튕겨 나갔어요!", icon="💥")
-    elif status_code == "pingpong":
-        st.toast("무한 핑퐁! 공이 같은 거리로 튕기고 있어요.", icon="🏓")
+        st.toast("착륙 성공! 100점!", icon="🎉")
     else:
-        st.toast("아직 착륙 중이에요. 설정을 바꿔 다시 도전하세요!", icon="⚽")
+        # 성공이 아닌 모든 결과에 실패 연출 적용
+        show_failure_effect = True
+
+        if status_code == "explode":
+            failure_title = "☢️ CATASTROPHIC FAILURE ☢️"
+            failure_message = "학습률 폭주! 공이 우주로 날아갔습니다!"
+        elif status_code == "pingpong":
+            failure_title = "🚨 INFINITE PING-PONG 🚨"
+            failure_message = "무한 핑퐁! 목표에 도달하지 못했습니다!"
+        elif status_code == "oscillating":
+            failure_title = "💥 LANDING FAILURE 💥"
+            failure_message = "지그재그 대참사! 아직 착륙하지 못했습니다!"
+        else:
+            failure_title = "💣 MISSION FAILED 💣"
+            failure_message = "착륙 실패! 공이 목표 지점에 도착하지 못했습니다!"
+
+        st.toast("💥 실패! 대참사가 발생했습니다!", icon="💣")
 
 # =========================================================
-# 8. 그래프와 스코어보드
+# 7-1. 💣 실패 화면 오버레이
+# =========================================================
+if show_failure_effect:
+    st.markdown(
+        f"""
+        <div class="failure-overlay">
+            <div class="failure-particles">
+                <span class="failure-particle">🔥</span>
+                <span class="failure-particle">💥</span>
+                <span class="failure-particle">⚡</span>
+                <span class="failure-particle">💣</span>
+                <span class="failure-particle">🔥</span>
+                <span class="failure-particle">💥</span>
+                <span class="failure-particle">☄️</span>
+                <span class="failure-particle">⚡</span>
+            </div>
+
+            <div class="failure-content">
+                <div class="failure-warning">
+                    {html.escape(failure_title)}
+                </div>
+
+                <div class="failure-boom">💥💣💥</div>
+
+                <div class="failure-message">
+                    {html.escape(failure_message)}
+                </div>
+
+                <div class="failure-subtitle">
+                    SYSTEM ALERT: 목표 착륙에 실패했습니다.
+                    다음 도전에서는 학습률을 다시 조정하세요.
+                </div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+# =========================================================
+# 8. 그래프
 # =========================================================
 st.divider()
+graph_col, score_col = st.columns([2, 1])
 
-col1, col2 = st.columns([2, 1])
-
-with col1:
+with graph_col:
     st.subheader("🏔️ 공의 이동 경로")
 
     fig = go.Figure()
-
-    # 골짜기 모양
     x_curve = np.linspace(-12, 12, 400)
+
     fig.add_trace(
         go.Scatter(
             x=x_curve,
             y=x_curve ** 2,
             mode="lines",
-            line=dict(color="#8B929A", width=3),
-            name="골짜기 f(x) = x²",
+            line=dict(color="#667085", width=3),
+            name="골짜기 f(x)=x²",
             hoverinfo="skip",
         )
     )
@@ -381,24 +638,25 @@ with col1:
     result = st.session_state.last_result
 
     if result is not None:
-        # 실제 이동 경로
+        xs = result["x_history"]
+        ys = result["y_history"]
+
         fig.add_trace(
             go.Scatter(
-                x=result["x_history"],
-                y=result["y_history"],
+                x=xs,
+                y=ys,
                 mode="lines+markers",
-                line=dict(color="#E74C3C", width=2, dash="dot"),
+                line=dict(color="#D62728", width=3, dash="dot"),
                 marker=dict(
                     size=10,
-                    color="#E74C3C",
-                    line=dict(color="#922B21", width=1),
+                    color="#D62728",
+                    line=dict(color="#7F1D1D", width=1),
                 ),
-                name="⚽ 공의 이동",
-                hovertemplate="위치: %{x:.4f}<br>Loss: %{y:.4f}<extra></extra>",
+                name="공의 이동",
+                hovertemplate="위치: %{x:.5f}<br>Loss: %{y:.5f}<extra></extra>",
             )
         )
 
-        # 목표 지점
         fig.add_trace(
             go.Scatter(
                 x=[0],
@@ -406,202 +664,148 @@ with col1:
                 mode="markers",
                 marker=dict(
                     size=16,
-                    color="#F1C40F",
+                    color="#F4B400",
                     symbol="star",
-                    line=dict(color="#D68910", width=1),
+                    line=dict(color="#8A5A00", width=1),
                 ),
-                name="🏁 목표 지점",
+                name="목표 지점",
             )
         )
 
     fig.update_layout(
-        xaxis_title="공의 위치",
+        xaxis_title="공의 위치 (x)",
         yaxis_title="오차 (Loss)",
         xaxis=dict(range=[-12, 12], zeroline=True),
         yaxis=dict(range=[-5, 120], zeroline=True),
         height=500,
-        margin=dict(l=10, r=10, t=35, b=10),
+        margin=dict(l=15, r=15, t=35, b=15),
         legend=dict(orientation="h", y=1.08, x=0),
-        hovermode="closest",
-        plot_bgcolor="rgba(255,255,255,0.65)",
-        paper_bgcolor="rgba(255,255,255,0)",
+        plot_bgcolor="#FFFFFF",
+        paper_bgcolor="#FFFFFF",
+        font=dict(color="#172033"),
     )
 
     st.plotly_chart(fig, width="stretch")
 
-    if result is not None and (
-        result["overflow"] or abs(result["final_x"]) > 12
-    ):
+    if result is not None and abs(result["final_x"]) > 12:
         st.warning(
-            "공이 그래프의 표시 범위를 벗어났어요. "
-            "최종 위치와 Loss 지표에서 발산 정도를 확인하세요."
+            "공이 그래프 표시 범위 밖으로 나갔어요. "
+            "오른쪽 결과에서 최종 위치를 확인하세요."
         )
 
-with col2:
-    st.subheader("📟 내 결과")
+# =========================================================
+# 9. 결과 점수판
+# =========================================================
+with score_col:
+    st.subheader("📟 이번 도전 결과")
 
     result = st.session_state.last_result
 
     if result is None:
-        st.info(
-            "👈 사이드바에서 학습률과 발걸음 수를 정하고 "
-            "'도전 시작!'을 눌러 보세요."
-        )
+        st.info("사이드바에서 설정하고 도전을 시작해 보세요.")
     else:
         code = result["status_code"]
 
         if code == "success":
-            st.success(
-                "🎉 **착륙 성공!**\n\n"
-                "공이 목표 지점에 아주 정확하게 도착했어요."
-            )
-        elif code == "pingpong":
-            st.warning(
-                "🏓 **무한 핑퐁!**\n\n"
-                "공이 좌우로 튕기지만 거리는 줄어들지 않아요."
-            )
+            st.success("🎉 착륙 성공! 목표 위치에 도착했어요.")
         elif code == "explode":
-            st.error(
-                "💥 **우주폭발!**\n\n"
-                "공이 목표에서 점점 멀어지고 있어요."
-            )
+            st.error("💥 우주폭발! 공이 목표에서 멀어졌어요.")
+        elif code == "pingpong":
+            st.warning("🔁 무한 핑퐁! 거리가 줄어들지 않아요.")
+        elif code == "oscillating":
+            st.warning("↔️ 지그재그 수렴 중! 튕기지만 점점 가까워져요.")
         else:
-            st.info(
-                "🐢 **아직 착륙 중!**\n\n"
-                "목표에 가까워졌지만 정확도가 부족해요."
-            )
+            st.info("🐢 아직 착륙 중이에요. 더 많은 이동이 필요할 수 있어요.")
 
-        st.metric("🏅 점수", f"{calc_score(result['final_x'])} / 100")
+        st.metric(
+            "🏅 점수",
+            f"{result['score']} / 100",
+            help="성공 판정을 받은 경우에만 100점이에요.",
+        )
+
         st.metric("📍 최종 위치", f"{result['final_x']:.8g}")
         st.metric("📉 최종 Loss", f"{result['final_loss']:.8g}")
-        st.metric("👟 적용한 학습률", f"{result['alpha']:.2f}")
+
         st.metric(
             "🔁 실제 이동 횟수",
-            f"{len(result['x_history']) - 1}회",
+            f"{result['actual_steps']}회",
+            help="공의 위치를 실제로 갱신한 횟수예요.",
         )
 
         st.caption(
-            "출발 위치 8.0 · 목표 위치 0 · "
-            f"성공 기준 |x| < {SUCCESS_THRESHOLD:g}"
+            f"최대 이동 횟수: {result['epochs']}회 · "
+            f"성공 기준: |x| < {SUCCESS_THRESHOLD:g}"
         )
 
 # =========================================================
-# 9. 우리 반 도전 기록실
+# 10. 개인 기록실
 # =========================================================
 st.divider()
-st.header("🏆 우리 반 도전 기록실")
+st.header("📒 내 개인 기록")
 
 st.caption(
-    "현재 브라우저 세션의 기록이에요. "
-    "모든 친구의 기록을 한곳에 모으려면 공용 데이터베이스가 필요해요."
+    "이 기록실에는 현재 브라우저 세션에서 내가 실행한 실험만 표시돼요."
 )
 
-df = pd.DataFrame(st.session_state.experiment_data)
+records = st.session_state.personal_records
+df = pd.DataFrame(records)
 
 if df.empty:
-    st.info("📭 아직 기록이 없어요. 첫 번째 도전자가 되어 보세요!")
+    st.info(
+        "아직 개인 기록이 없어요. "
+        "게임을 한 번 실행하면 결과가 여기에 저장돼요."
+    )
 else:
-    best_idx = df["최종Loss"].idxmin()
-    best_row = df.loc[best_idx]
+    best_score = int(df["점수"].max())
+    total_games = len(df)
+    success_games = int((df["결과"] == "착륙 성공").sum())
 
-    st.markdown(
-        f"### 🥇 명예의 전당: {best_row['닉네임']}"
-    )
-    st.write(
-        f"최고 기록 Loss: **{best_row['최종Loss']:.8g}** · "
-        f"점수: **{calc_score(best_row['최종위치'])}점**"
-    )
+    m1, m2, m3 = st.columns(3)
+    m1.metric("🎮 총 플레이", f"{total_games}회")
+    m2.metric("🏅 최고 점수", f"{best_score}점")
+    m3.metric("🎯 성공 횟수", f"{success_games}회")
 
-    stat_col1, stat_col2 = st.columns([2, 1])
-
-    with stat_col1:
-        display_df = df.copy()
-        display_df["최종위치"] = display_df["최종위치"].map(
-            lambda v: f"{v:.8g}"
-        )
-        display_df["최종Loss"] = display_df["최종Loss"].map(
-            lambda v: f"{v:.8g}"
-        )
-
-        st.dataframe(
-            display_df,
-            width="stretch",
-            hide_index=True,
-        )
-
-        csv_bytes = df.to_csv(index=False).encode("utf-8-sig")
-
-        st.download_button(
-            label="📥 실험 기록 CSV 다운로드",
-            data=csv_bytes,
-            file_name="gradient_descent_game_data.csv",
-            mime="text/csv",
-            width="stretch",
-        )
-
-    with stat_col2:
-        status_counts = (
-            df["결과상태"]
-            .value_counts()
-            .rename_axis("결과")
-            .reset_index(name="횟수")
-        )
-
-        color_map = {
-            "착륙성공": "#2ECC71",
-            "무한핑퐁": "#F39C12",
-            "우주폭발": "#E74C3C",
-            "착륙중": "#95A5A6",
-        }
-
-        fig_pie = px.pie(
-            status_counts,
-            names="결과",
-            values="횟수",
-            color="결과",
-            color_discrete_map=color_map,
-            hole=0.45,
-            title="도전 결과 비율",
-        )
-
-        fig_pie.update_traces(
-            textposition="inside",
-            textinfo="percent+label",
-        )
-
-        fig_pie.update_layout(
-            height=360,
-            margin=dict(l=5, r=5, t=50, b=5),
-        )
-
-        st.plotly_chart(fig_pie, width="stretch")
-
-    total_count = len(df)
-    success_count = int((df["결과상태"] == "착륙성공").sum())
-    explosion_count = int((df["결과상태"] == "우주폭발").sum())
-    pingpong_count = int((df["결과상태"] == "무한핑퐁").sum())
-
-    success_rate = round(success_count / total_count * 100, 1)
-    explosion_rate = round(explosion_count / total_count * 100, 1)
-
-    metric1, metric2, metric3 = st.columns(3)
-
-    metric1.metric("👥 총 도전 횟수", f"{total_count}회")
-    metric2.metric("🎯 착륙 성공률", f"{success_rate}%")
-    metric3.metric("💥 우주폭발 비율", f"{explosion_rate}%")
-
-    st.markdown(
-        f"🔥 **{explosion_count}회** 우주폭발 · "
-        f"🏓 **{pingpong_count}회** 무한 핑퐁 · "
-        f"🎯 **{success_count}회** 착륙 성공"
+    st.markdown("### 🧾 실험 기록")
+    st.dataframe(
+        df.iloc[::-1],
+        width="stretch",
+        hide_index=True,
     )
 
-# =========================================================
-# 10. 하단 안내
-# =========================================================
+    csv_data = df.to_csv(index=False).encode("utf-8-sig")
+
+    st.download_button(
+        "📥 내 기록 CSV 다운로드",
+        data=csv_data,
+        file_name="my_gradient_descent_records.csv",
+        mime="text/csv",
+        width="stretch",
+    )
+
+    st.markdown("### 📈 내 점수 변화")
+
+    chart_df = df.copy()
+    chart_df["도전 번호"] = np.arange(1, len(chart_df) + 1)
+
+    fig_score = px.line(
+        chart_df,
+        x="도전 번호",
+        y="점수",
+        markers=True,
+        title="도전할수록 점수가 어떻게 달라질까?",
+    )
+
+    fig_score.update_layout(
+        yaxis=dict(range=[0, 100]),
+        plot_bgcolor="#FFFFFF",
+        paper_bgcolor="#FFFFFF",
+        font=dict(color="#172033"),
+    )
+
+    st.plotly_chart(fig_score, width="stretch")
+
 st.divider()
-
 st.caption(
-    "학습 목표: 학습률과 반복 횟수가 경사하강법의 결과에 "
-    "어떤 영향을 주는지 직접 실험하며 이해하기."
+    "AI 학습 원리 체험: 학습률과 반복 횟수가 "
+    "수렴·진동·발산에 미치는 영향을 관찰해 보세요."
 )

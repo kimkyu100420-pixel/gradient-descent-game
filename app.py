@@ -213,7 +213,7 @@ nickname_input = st.sidebar.text_input("연구원 닉네임", value="익명", ma
 st.sidebar.metric("📍 시작 위치", "8.0 (고정)")
 alpha_input = st.sidebar.slider("학습률 α", 0.05, 1.50, 0.80, 0.05, format="%.2f")
 epochs_input = st.sidebar.slider("최대 이동 횟수", 1, 10, 5, 1)
-playback_speed = st.sidebar.slider("🎞️ 이동 애니메이션 속도", 0.25, 1.50, 0.65, 0.05, help="값이 작을수록 공이 더 천천히 이동해요.")
+playback_speed = 0.65  # 자동 애니메이션 속도(사용자 조절 없음)
 run_button = st.sidebar.button("⚽ 실험 실행!", type="primary", width="stretch")
 
 # --------------------------- Hidden rules / quests ---------------------------
@@ -429,7 +429,7 @@ with graph_col:
         st.caption("실험을 실행하면 공이 포물선 위를 따라 이동하는 애니메이션이 자동으로 재생됩니다.")
     else:
         xs_anim = np.asarray(result["x_history"], dtype=float)
-        ys_anim = np.asarray(result["y_history"], dtype=float)
+        ys_anim = np.asarray(xs_anim ** 2, dtype=float)
         # The ball travels along the parabola y=x²; the red trace shows the path traced so far.
         # Axis limits are identical for every frame, so the graph itself stays fixed.
         curve_x = np.linspace(-12, 12, 500)
@@ -458,8 +458,8 @@ with graph_col:
             x=frame_payload[0]["x"], y=frame_payload[0]["y"],
             mode="lines+markers",
             line=dict(color="#D62728", width=3),
-            marker=dict(size=8, color="#D62728"),
-            name="공이 지나간 경로",
+            marker=dict(size=9, color="#D62728", symbol="circle", line=dict(color="#7F1D1D", width=1)),
+            name="공이 지나간 경로 · 방문 지점",
             hovertemplate="위치: %{x:.5f}<br>Loss: %{y:.5f}<extra></extra>"))
         fig.add_trace(go.Scatter(
             x=[frame_payload[0]["ball_x"]], y=[frame_payload[0]["ball_y"]],
@@ -483,8 +483,8 @@ with graph_col:
                     go.Scatter(
                         x=frame["x"], y=frame["y"], mode="lines+markers",
                         line=dict(color="#D62728", width=3),
-                        marker=dict(size=8, color="#D62728"),
-                        name="공이 지나간 경로"),
+                        marker=dict(size=9, color="#D62728", symbol="circle", line=dict(color="#7F1D1D", width=1)),
+                        name="공이 지나간 경로 · 방문 지점"),
                     go.Scatter(
                         x=[frame["ball_x"]], y=[frame["ball_y"]],
                         mode="markers+text",
@@ -569,7 +569,7 @@ with graph_col:
             height=30,
             scrolling=False,
         )
-        st.caption("공은 포물선 f(x)=x² 위를 따라 움직이고, 축의 범위는 고정됩니다. 새 실험을 실행하면 애니메이션이 자동 재생됩니다.")
+        st.caption("축구공은 이차함수 f(x)=x² 그래프 위를 따라 자동으로 이동합니다. 지나간 위치마다 점이 찍히며, 그래프 축은 고정됩니다.")
     if result is not None and abs(result["final_x"]) > 12:
         st.warning("공이 그래프 표시 범위 밖으로 나갔어요. 오른쪽 결과에서 최종 위치를 확인하세요.")
 

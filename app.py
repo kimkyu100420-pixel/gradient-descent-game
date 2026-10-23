@@ -26,7 +26,17 @@ st.markdown(
     p,li,label,.stMarkdown{color:#243247}
     [data-testid="stMetric"]{background:#fff;border:1px solid #CAD5E2;border-radius:12px;padding:12px}
     [data-testid="stMetricLabel"],[data-testid="stMetricValue"],[data-testid="stMetricDelta"]{color:#172033!important}
-    div[data-testid="stButton"] button,div[data-testid="stDownloadButton"] button{border-radius:12px;font-weight:700;border:1px solid #244B78}
+    div[data-testid="stButton"] button,div[data-testid="stDownloadButton"] button{border-radius:12px;font-weight:800;border:1px solid #8BA8C8;background:#FFFFFF!important;color:#163354!important;min-height:2.7rem}
+    div[data-testid="stButton"] button p,div[data-testid="stDownloadButton"] button p{color:#163354!important}
+    div[data-testid="stButton"] button[kind="primary"]{background:linear-gradient(135deg,#1769AA,#2946A0)!important;color:#FFFFFF!important;border:1px solid #164E83!important}
+    div[data-testid="stButton"] button[kind="primary"] p{color:#FFFFFF!important}
+    [data-testid="stAlert"]{background:#FFFFFF!important;border:1px solid #A8BED6!important;border-radius:12px}
+    [data-testid="stAlert"] p,[data-testid="stAlert"] div,[data-testid="stAlert"] span{color:#172B45!important}
+    [data-testid="stToast"]{background:#FFFFFF!important;color:#172033!important;border:1px solid #9BB5D2!important}
+    [data-testid="stToast"] *{color:#172033!important}
+    [data-testid="stNotification"]{color:#172033!important}
+    [data-testid="stTextInput"] input,[data-testid="stNumberInput"] input{background:#FFFFFF!important;color:#172033!important}
+    [data-testid="stSelectbox"] div,[data-testid="stSlider"] label{color:#172033!important}
     [data-testid="stExpander"]{background:#fff;border:1px solid #CAD5E2;border-radius:12px}
     input,textarea{color:#172033!important;background:#fff!important}
     [data-testid="stCaptionContainer"]{color:#45566D!important}
@@ -35,7 +45,7 @@ st.markdown(
     .quest-card{background:#fff;border:1px solid #C8D6E5;border-radius:16px;padding:18px;margin:8px 0}
     .locked{background:#E8EDF3;border:1px dashed #9BAEC2;border-radius:12px;padding:12px;color:#34445A}
     .unlocked{background:#E6F7EC;border:1px solid #78C995;border-radius:12px;padding:12px;color:#14532D}
-    .research-panel{background:linear-gradient(145deg,#ffffff,#edf4fc);border:2px solid #91abc8;border-radius:22px;padding:clamp(18px,3vw,34px);box-shadow:0 12px 34px rgba(25,55,90,.13);margin:14px 0}
+    .research-panel{background:linear-gradient(145deg,#ffffff,#edf4fc);border:2px solid #91abc8;border-radius:22px;padding:clamp(18px,3vw,34px);box-shadow:0 12px 34px rgba(25,55,90,.13);margin:14px 0}.panel-heading{background:linear-gradient(120deg,#e7f2ff,#ffffff);border:1px solid #bdd1e8;border-radius:16px;padding:16px 20px;margin-bottom:14px}.panel-heading h2{margin:0;color:#142B4A!important}.panel-heading p{margin:6px 0 0;color:#334155!important}
     .master-banner{position:relative;overflow:hidden;text-align:center;padding:clamp(24px,5vw,52px);margin:18px 0 24px;border-radius:24px;border:3px solid #ffe68a;background:linear-gradient(120deg,#101b4b,#542b83,#a34a7c,#174e72);box-shadow:0 0 28px rgba(255,194,69,.65),inset 0 0 30px rgba(255,255,255,.12);animation:masterGlow 2.2s ease-in-out infinite alternate}
     .master-banner h1{font-size:clamp(38px,7vw,76px)!important;line-height:1.12;margin:0;color:#fff!important;text-shadow:0 0 8px #ffe68a,0 0 22px #ff8de1,0 4px 2px #17113b!important}
     .master-banner p{font-size:clamp(16px,2.4vw,24px);font-weight:900;color:#fff!important;margin:14px 0 0;text-shadow:0 2px 8px #17113b}
@@ -91,16 +101,19 @@ for key, value in defaults.items():
     if key not in st.session_state:
         st.session_state[key] = value
 
-# Show a celebratory title once every quest is completed (including the master quest).
-if all(q["id"] in st.session_state.quests_done for q in [
-    {"id":"first_success"}, {"id":"slow"}, {"id":"one_step"}, {"id":"zigzag"},
-    {"id":"pingpong"}, {"id":"diverge"}, {"id":"master"}
-]):
+# 연구소 마스터: 별도의 퀘스트가 아니라 모든 일반 퀘스트와 도감 규칙 완성 시 표시
+REQUIRED_QUEST_IDS = ["first_success", "slow", "one_step", "zigzag", "pingpong", "diverge"]
+ALL_RULE_IDS = ["slow", "one_step", "zigzag", "pingpong", "diverge"]
+is_research_lab_master = (
+    all(qid in st.session_state.quests_done for qid in REQUIRED_QUEST_IDS)
+    and all(rid in st.session_state.unlocked_rules for rid in ALL_RULE_IDS)
+)
+if is_research_lab_master:
     st.markdown("""
     <div class="master-banner">
       <div style="font-size:clamp(28px,5vw,54px);margin-bottom:8px">✨ 🎆 🏆 🎇 ✨</div>
       <h1>연구소 마스터</h1>
-      <p>모든 퀘스트 완료 · 다섯 가지 움직임 규칙을 모두 발견했습니다!</p>
+      <p>모든 퀘스트와 움직임 연구도감을 완성했습니다!</p>
       <div style="font-size:clamp(24px,4vw,42px);margin-top:12px">🌟 ⚽ 🌟</div>
     </div>
     """, unsafe_allow_html=True)
@@ -292,7 +305,6 @@ QUESTS = [
     {"id":"zigzag","title":"지그재그 탐정","desc":"목표를 넘나들며 수렴하는 조건을 발견하라.","reward":100},
     {"id":"pingpong","title":"무한 핑퐁 실험","desc":"공이 같은 거리로 계속 튕기는 현상을 재현하라.","reward":100},
     {"id":"diverge","title":"폭주 경보","desc":"공이 점점 더 멀리 발산하는 조건을 발견하라.","reward":120},
-    {"id":"master","title":"연구소 마스터","desc":"모든 다섯 가지 움직임 규칙을 해금하라.","reward":250},
 ]
 
 # --------------------------- Run and record ---------------------------
@@ -365,12 +377,6 @@ if run_button:
             st.session_state.quests_done.append("diverge")
             newly_unlocked.append("폭주 경보 퀘스트 완료! +120 XP")
 
-    rule_ids = {"slow", "one_step", "zigzag", "pingpong", "diverge"}
-    if rule_ids.issubset(set(st.session_state.unlocked_rules)):
-        if "master" not in st.session_state.quests_done:
-            st.session_state.quests_done.append("master")
-            newly_unlocked.append("연구소 마스터 달성! +250 XP")
-
     st.session_state.quest_notice = newly_unlocked
     completed_notices = [n for n in newly_unlocked if "퀘스트 완료" in n or "마스터 달성" in n]
     for notice in completed_notices:
@@ -386,123 +392,128 @@ if run_button:
 
 # --------------------------- Quest dashboard ---------------------------
 if st.session_state.quests_visible:
-    st.divider()
-    st.markdown('<div class="research-panel">', unsafe_allow_html=True)
-    st.header("🧪 퀘스트 센터")
-    st.write("퀘스트를 달성한 뒤 버튼을 눌러 경험치를 수령하세요. 연구 도감은 오른쪽 위 버튼으로 따로 열고 닫을 수 있어요.")
-    st.write("처음에는 규칙이 숨겨져 있어요. 직접 실험해 현상을 발견하면 해당 규칙이 해금됩니다.")
-    if st.session_state.researcher_mode:
-        st.info("🧑‍🔬 연구자 모드: 퀘스트 정답과 달성 조건이 공개되어 있습니다.")
-        quest_answers = {
-            "첫 번째 착륙": "실험 결과가 착륙 성공이어야 합니다. |최종 x| < 1e-5이면 성공합니다.",
-            "거북이의 비밀": "학습률을 0보다 크고 0.5보다 작게 설정해 실험합니다. (0 < α < 0.5)",
-            "원샷 착륙": "학습률 α = 0.5로 설정합니다. 한 번의 업데이트로 x=0에 도착합니다.",
-            "지그재그 탐정": "학습률을 0.5보다 크고 1보다 작게 설정합니다. (0.5 < α < 1)",
-            "무한 핑퐁 실험": "학습률 α = 1.0으로 설정합니다. x의 부호는 번갈아 바뀌지만 크기는 줄지 않습니다.",
-            "폭주 경보": "학습률 α > 1.0으로 설정합니다. 공의 위치가 목표에서 점점 멀어집니다.",
-            "연구소 마스터": "느린 수렴, 완벽한 한 번의 착륙, 지그재그 수렴, 무한 핑퐁, 발산 폭주 다섯 규칙을 모두 발견합니다."
-        }
-        for qname, answer in quest_answers.items():
-            st.markdown(f"**{qname} — 정답/달성 조건**")
-            st.write(answer)
-    xp_col, done_col, rule_col = st.columns(3)
-    xp_col.metric("✨ 연구 경험치", f"{st.session_state.xp} XP")
-    done_col.metric("🏁 완료 퀘스트", f"{len(st.session_state.quests_done)} / {len(QUESTS)}")
-    rule_col.metric("🔓 발견한 규칙", f"{len(st.session_state.unlocked_rules)} / 5")
+    with st.container(border=True):
+        st.markdown('<div class="panel-heading"><h2>🧪 퀘스트 센터</h2><p>완료한 퀘스트에서 XP를 직접 수령하세요.</p></div>', unsafe_allow_html=True)
+        st.markdown("**🏆 연구소 마스터 안내**")
+        st.info("모든 일반 퀘스트를 완료하고 움직임 연구도감의 규칙 5개를 모두 발견하면 연구소 마스터가 됩니다. 별도의 연구소 마스터 퀘스트는 없습니다.")
 
-    if st.session_state.quest_notice:
-        for notice in st.session_state.quest_notice:
-            st.success(notice)
-        st.session_state.quest_notice = None
+        if st.session_state.researcher_mode:
+            st.markdown("### 🧑‍🔬 연구자 모드 · 퀘스트 정답")
+            quest_answers = [
+                ("첫 번째 착륙", "실험 결과가 착륙 성공이어야 합니다. 최종 위치 |x| < 1e-5."),
+                ("거북이의 비밀", "학습률 0 < α < 0.5로 설정해 실험합니다."),
+                ("원샷 착륙", "학습률 α = 0.5로 설정합니다. 한 번의 업데이트로 x=0에 도착합니다."),
+                ("지그재그 탐정", "학습률 0.5 < α < 1로 설정합니다."),
+                ("무한 핑퐁 실험", "학습률 α = 1.0으로 설정합니다. 부호는 바뀌지만 위치의 절댓값은 줄지 않습니다."),
+                ("폭주 경보", "학습률 α > 1.0으로 설정합니다. 목표에서 점점 멀어집니다."),
+            ]
+            for n, (name, answer) in enumerate(quest_answers, 1):
+                st.markdown(f"**{n}. {name}**")
+                st.write(answer)
+                if n < len(quest_answers):
+                    st.divider()
+        else:
+            xp_col, done_col, rule_col = st.columns(3)
+            xp_col.metric("✨ 연구 경험치", f"{st.session_state.xp} XP")
+            done_col.metric("🏁 완료 퀘스트", f"{len([q for q in QUESTS if q['id'] in st.session_state.quests_done])} / {len(QUESTS)}")
+            rule_col.metric("🔓 발견한 규칙", f"{len(st.session_state.unlocked_rules)} / {len(RULES)}")
 
-    for quest in QUESTS:
-        completed = quest["id"] in st.session_state.quests_done
-        claimed = quest["id"] in st.session_state.quests_claimed
-        with st.container(border=True):
-            top1, top2 = st.columns([4, 1])
-            top1.markdown(f"### {'🏆' if claimed else '✅' if completed else '🔒'} {quest['title']}")
-            top2.markdown(f"**{quest['reward']} XP**")
-            st.write(quest["desc"])
-            if claimed:
-                st.success("경험치 수령 완료")
-            elif completed:
-                st.success("퀘스트 성공! 아래 버튼을 눌러 경험치를 수령하세요.")
-                if st.button(f"🎁 {quest['reward']} XP 받기", key=f"claim_{quest['id']}", type="primary", width="stretch"):
-                    st.session_state.quests_claimed.append(quest["id"])
-                    st.session_state.xp += quest["reward"]
-                    st.session_state.quest_firework = True
-                    st.rerun()
-            else:
-                st.caption("미완료 — 사이드바에서 실험 조건을 바꾸어 도전하세요.")
+            if st.session_state.quest_notice:
+                for notice in st.session_state.quest_notice:
+                    st.success(notice)
+                st.session_state.quest_notice = None
 
-    # 폭죽 이펙트: 경험치 수령 버튼을 눌렀을 때만 재생
-    if st.session_state.quest_firework:
-        st.balloons()
-        st.toast("경험치 수령 완료! 축하해요!", icon="🎆")
-        components.html("""
-        <div style="position:relative;height:240px;overflow:hidden;border-radius:16px;background:linear-gradient(180deg,#10172b,#182b4a);">
-          <canvas id="fireworks" style="width:100%;height:240px;display:block;"></canvas>
-          <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;color:white;font:800 25px system-ui;text-shadow:0 2px 12px #000;">🎆 XP 획득! 🎆</div>
-        </div>
-        <script>
-        (() => {
-          const canvas = document.getElementById('fireworks');
-          const ctx = canvas.getContext('2d');
-          const dpr = window.devicePixelRatio || 1;
-          const w = canvas.clientWidth, h = 240;
-          canvas.width = w*dpr; canvas.height = h*dpr; ctx.scale(dpr,dpr);
-          const colors = ['#ffdf6b','#ff6b9a','#72e6ff','#b99aff','#7dffb2','#ffffff'];
-          let particles = [];
-          for(let burst=0; burst<7; burst++){
-            const cx = 35 + Math.random()*(w-70), cy = 25 + Math.random()*125;
-            const delay = burst*180;
-            for(let i=0;i<42;i++){
-              const a = Math.PI*2*i/42, speed=1.2+Math.random()*3.4;
-              particles.push({x:cx,y:cy,vx:Math.cos(a)*speed,vy:Math.sin(a)*speed,life:55+Math.random()*25,delay,color:colors[burst%colors.length],r:1.5+Math.random()*2});
-            }
-          }
-          let frame=0;
-          function draw(){
-            ctx.clearRect(0,0,w,h);
-            for(const p of particles){
-              if(frame<p.delay/16) continue;
-              p.x+=p.vx; p.y+=p.vy; p.vy+=0.025; p.vx*=0.992; p.life--;
-              if(p.life>0){ctx.globalAlpha=Math.min(1,p.life/22);ctx.fillStyle=p.color;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill();}
-            }
-            ctx.globalAlpha=1; frame++;
-            if(frame<125) requestAnimationFrame(draw);
-          }
-          draw();
-        })();
-        </script>
-        """, height=250)
-        st.session_state.quest_firework = False
-    st.markdown('</div>', unsafe_allow_html=True)
+            for quest in QUESTS:
+                completed = quest["id"] in st.session_state.quests_done
+                claimed = quest["id"] in st.session_state.quests_claimed
+                with st.container(border=True):
+                    top1, top2 = st.columns([4, 1])
+                    top1.markdown(f"### {'🏆' if claimed else '✅' if completed else '🔒'} {quest['title']}")
+                    top2.markdown(f"**{quest['reward']} XP**")
+                    st.write(quest["desc"])
+                    if claimed:
+                        st.success("경험치 수령 완료")
+                    elif completed:
+                        st.success("퀘스트 성공! 아래 버튼을 눌러 경험치를 수령하세요.")
+                        if st.button(f"🎁 {quest['reward']} XP 받기", key=f"claim_{quest['id']}", type="primary", width="stretch"):
+                            st.session_state.quests_claimed.append(quest["id"])
+                            st.session_state.xp += quest["reward"]
+                            st.session_state.quest_firework = True
+                            st.rerun()
+                    else:
+                        st.caption("미완료 — 사이드바에서 실험 조건을 바꾸어 도전하세요.")
 
+            if st.session_state.quest_firework:
+                st.balloons()
+                st.toast("경험치 수령 완료! 축하해요!", icon="🎆")
+                components.html("""
+                <div style="position:relative;height:240px;overflow:hidden;border-radius:16px;background:linear-gradient(180deg,#10172b,#182b4a);">
+                  <canvas id="fireworks" style="width:100%;height:240px;display:block;"></canvas>
+                  <div style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;pointer-events:none;color:white;font:800 25px system-ui;text-shadow:0 2px 12px #000;">🎆 XP 획득! 🎆</div>
+                </div>
+                <script>
+                (() => {
+                  const canvas = document.getElementById('fireworks');
+                  const ctx = canvas.getContext('2d');
+                  const dpr = window.devicePixelRatio || 1;
+                  const w = canvas.clientWidth, h = 240;
+                  canvas.width = w*dpr; canvas.height = h*dpr; ctx.scale(dpr,dpr);
+                  const colors = ['#ffdf6b','#ff6b9a','#72e6ff','#b99aff','#7dffb2','#ffffff'];
+                  let particles = [];
+                  for(let burst=0; burst<7; burst++){
+                    const cx = 35 + Math.random()*(w-70), cy = 25 + Math.random()*125;
+                    for(let i=0;i<42;i++){
+                      const a = Math.PI*2*i/42, speed=1.2+Math.random()*3.4;
+                      particles.push({x:cx,y:cy,vx:Math.cos(a)*speed,vy:Math.sin(a)*speed,life:65+Math.random()*25,color:colors[burst%colors.length],r:1.5+Math.random()*2});
+                    }
+                  }
+                  let frame=0;
+                  function draw(){
+                    ctx.clearRect(0,0,w,h);
+                    for(const p of particles){
+                      p.x+=p.vx; p.y+=p.vy; p.vy+=0.025; p.vx*=0.992; p.life--;
+                      if(p.life>0){ctx.globalAlpha=Math.min(1,p.life/22);ctx.fillStyle=p.color;ctx.beginPath();ctx.arc(p.x,p.y,p.r,0,Math.PI*2);ctx.fill();}
+                    }
+                    ctx.globalAlpha=1; frame++;
+                    if(frame<125) requestAnimationFrame(draw);
+                  }
+                  draw();
+                })();
+                </script>
+                """, height=250)
+                st.session_state.quest_firework = False
 
 # --------------------------- Rule encyclopedia ---------------------------
 if st.session_state.research_visible:
-    st.divider()
-    st.markdown('<div class="research-panel">', unsafe_allow_html=True)
-    st.subheader("📚 움직임 연구도감")
-    if st.session_state.researcher_mode:
-        st.info("🧑‍🔬 연구자 모드: 도감의 모든 규칙과 정답이 공개되어 있습니다.")
-        st.caption("정답 요약: 0<α<0.5는 느린 수렴, α=0.5는 한 번의 착륙, 0.5<α<1은 지그재그 수렴, α=1은 무한 핑퐁, α>1은 발산입니다.")
-    else:
-        st.caption("발견한 규칙만 공개됩니다. 아직 발견하지 못한 항목은 잠겨 있어요.")
-    for rule_id, rule in RULES.items():
-        if rule_id in st.session_state.unlocked_rules or st.session_state.researcher_mode:
-            with st.container(border=True):
-                st.markdown(f"### 🔓 {rule['title']}")
-                st.write(rule["description"])
-                st.code(rule["condition"])
-                if st.session_state.researcher_mode:
-                    st.caption("연구자 해설: " + rule["description"])
+    with st.container(border=True):
+        st.markdown('<div class="panel-heading"><h2>📚 움직임 연구도감</h2><p>다섯 가지 경사하강법의 움직임 규칙을 발견하세요.</p></div>', unsafe_allow_html=True)
+        if st.session_state.researcher_mode:
+            st.markdown("### 🧑‍🔬 연구자 모드 · 도감 정답")
+            answers = [
+                ("느린 수렴", "0 < α < 0.5", "공은 목표를 향해 한쪽에서 조금씩 접근합니다."),
+                ("완벽한 한 번의 착륙", "α = 0.5", "한 번의 업데이트로 x=0에 도착합니다."),
+                ("지그재그 수렴", "0.5 < α < 1", "목표를 번갈아 넘지만, 목표와의 거리는 줄어듭니다."),
+                ("무한 핑퐁", "α = 1", "부호는 번갈아 바뀌지만 위치의 절댓값은 줄지 않습니다."),
+                ("발산 폭주", "α > 1", "목표를 지나칠 뿐 아니라 매번 더 멀리 튕겨 나갑니다."),
+            ]
+            for n, (name, condition, explanation) in enumerate(answers, 1):
+                st.markdown(f"**{n}. {name}**")
+                st.code(condition)
+                st.write(explanation)
+                if n < len(answers):
+                    st.divider()
         else:
-            with st.container(border=True):
-                st.markdown(f"### 🔒 미확인 현상 — {len(st.session_state.unlocked_rules)+1:02d}")
-                st.write("규칙이 잠겨 있습니다. 학습률과 이동 횟수를 바꾸어 실험해 보세요.")
-    st.markdown('</div>', unsafe_allow_html=True)
+            st.caption("발견한 규칙만 공개됩니다. 잠긴 규칙은 직접 실험해 해금하세요.")
+            for rule_id, rule in RULES.items():
+                with st.container(border=True):
+                    if rule_id in st.session_state.unlocked_rules:
+                        st.markdown(f"### 🔓 {rule['title']}")
+                        st.write(rule["description"])
+                        st.code(rule["condition"])
+                    else:
+                        st.markdown("### 🔒 미확인 현상")
+                        st.write("규칙이 잠겨 있습니다. 학습률과 이동 횟수를 바꾸어 실험해 보세요.")
+
 # --------------------------- Current experiment graph/results ---------------------------
 st.divider()
 graph_col, score_col = st.columns([2, 1])

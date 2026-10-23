@@ -1,6 +1,5 @@
 import html
 import math
-import time
 
 import numpy as np
 import pandas as pd
@@ -10,7 +9,7 @@ import streamlit as st
 import streamlit.components.v1 as components
 
 # =========================================================
-# 1. 설정
+# 1. 앱 설정
 # =========================================================
 st.set_page_config(
     page_title="AI 경사하강법 미니게임",
@@ -23,7 +22,7 @@ SUCCESS_THRESHOLD = 1e-5
 CLIP_LIMIT = 1e5
 
 # =========================================================
-# 2. 가독성 중심 디자인 + 효과 애니메이션 CSS
+# 2. 디자인
 # =========================================================
 st.markdown(
     """
@@ -34,7 +33,7 @@ st.markdown(
         background: #F1F5F9;
         color: #172033;
     }
-    [data-testid="stHeader"] { background: rgba(241,245,249,0.95); }
+    [data-testid="stHeader"] { background: rgba(241,245,249,.95); }
     [data-testid="stSidebar"] {
         background: #DCE7F3;
         border-right: 1px solid #B6C8DC;
@@ -46,149 +45,27 @@ st.markdown(
     }
     p, li, label, .stMarkdown { color: #243247; }
     [data-testid="stMetric"] {
-        background: #FFFFFF;
-        border: 1px solid #CAD5E2;
-        border-radius: 12px;
-        padding: 12px;
+        background: #fff; border: 1px solid #CAD5E2;
+        border-radius: 12px; padding: 12px;
     }
     [data-testid="stMetricLabel"],
     [data-testid="stMetricValue"],
     [data-testid="stMetricDelta"] { color: #172033 !important; }
-    [data-testid="stDataFrame"] { background: #FFFFFF; }
     div[data-testid="stButton"] button,
     div[data-testid="stDownloadButton"] button {
-        border-radius: 12px;
-        font-weight: 700;
-        border: 1px solid #244B78;
+        border-radius: 12px; font-weight: 700; border: 1px solid #244B78;
     }
     [data-testid="stExpander"] {
-        background: #FFFFFF;
-        border: 1px solid #CAD5E2;
-        border-radius: 12px;
+        background: #fff; border: 1px solid #CAD5E2; border-radius: 12px;
     }
-    input, textarea {
-        color: #172033 !important;
-        background: #FFFFFF !important;
-    }
+    input, textarea { color: #172033 !important; background: #fff !important; }
     [data-testid="stCaptionContainer"] { color: #45566D !important; }
-
     .hero {
         background: linear-gradient(135deg, #15345B, #285C91);
-        padding: 26px;
-        border-radius: 16px;
-        margin-bottom: 16px;
+        padding: 26px; border-radius: 16px; margin-bottom: 16px;
     }
-    .hero h1 { color: #FFFFFF !important; margin: 0; }
-    .hero p { color: #FFFFFF !important; font-size: 17px; margin-bottom: 0; }
-
-    /* 실패 오버레이 */
-    @keyframes failureShake {
-        0%, 100% { transform: translate(0, 0); }
-        10% { transform: translate(-9px, 4px); }
-        20% { transform: translate(8px, -3px); }
-        30% { transform: translate(-7px, -5px); }
-        40% { transform: translate(9px, 3px); }
-        50% { transform: translate(-6px, 2px); }
-        60% { transform: translate(6px, -4px); }
-        70% { transform: translate(-4px, 3px); }
-        80% { transform: translate(4px, 0); }
-    }
-    @keyframes dangerFlash {
-        0%, 100% { opacity: 0; }
-        12%, 36% { opacity: .45; }
-        24%, 48% { opacity: 0; }
-    }
-    @keyframes boomPop {
-        0% { transform: scale(.08) rotate(-20deg); opacity: 0; }
-        35% { transform: scale(1.25) rotate(8deg); opacity: 1; }
-        65% { transform: scale(.95) rotate(-5deg); opacity: 1; }
-        100% { transform: scale(1) rotate(0); opacity: 1; }
-    }
-    @keyframes particleFly {
-        0% { transform: translate(0, 0) scale(.3) rotate(0); opacity: 0; }
-        15% { opacity: 1; }
-        100% { transform: translate(var(--dx), var(--dy)) scale(1.2) rotate(220deg); opacity: 0; }
-    }
-    @keyframes warningPulse {
-        0%, 100% { text-shadow: 0 0 5px #ff2525; }
-        50% { text-shadow: 0 0 22px #ff2525, 0 0 38px #ff5a00; }
-    }
-    @keyframes turtleWalk {
-        0% { opacity: 0; transform: translateX(-35px); }
-        15%, 75% { opacity: 1; }
-        100% { opacity: 0; transform: translateX(35px); }
-    }
-    .failure-overlay {
-        position: fixed;
-        inset: 0;
-        z-index: 99999;
-        pointer-events: none;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        background: radial-gradient(circle, rgba(255,40,0,.15), rgba(100,0,0,.55));
-        animation: dangerFlash 1.2s ease-out both;
-    }
-    .failure-card {
-        position: relative;
-        overflow: hidden;
-        width: min(90vw, 650px);
-        padding: 28px 20px;
-        text-align: center;
-        color: white;
-        border: 3px solid #ff3b30;
-        border-radius: 22px;
-        background: linear-gradient(160deg, #380606, #100d18 65%, #6d1000);
-        box-shadow: 0 0 35px #ff2400, inset 0 0 35px rgba(255,40,0,.25);
-        animation: boomPop .65s cubic-bezier(.2,.8,.3,1.3) both;
-    }
-    .failure-title {
-        font-size: clamp(28px, 5vw, 46px);
-        font-weight: 1000;
-        color: #ff4438;
-        animation: warningPulse .35s infinite;
-    }
-    .failure-boom {
-        font-size: clamp(60px, 12vw, 100px);
-        line-height: 1.3;
-        filter: drop-shadow(0 0 18px #ff4b00);
-    }
-    .failure-message {
-        font-size: clamp(18px, 3vw, 25px);
-        font-weight: 900;
-        margin-top: 12px;
-        color: #FFFFFF;
-    }
-    .failure-subtitle {
-        margin-top: 12px;
-        color: #ffd4c7;
-        font-size: 15px;
-    }
-    .failure-particle {
-        position: absolute;
-        left: 50%;
-        top: 50%;
-        font-size: 28px;
-        animation: particleFly 1.15s ease-out both;
-    }
-    .turtle-wrap {
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        gap: 12px;
-        padding: 18px;
-        margin: 12px 0;
-        border-radius: 16px;
-        background: #e4f4d7;
-        border: 2px solid #76a85b;
-        color: #244b1c;
-        font-weight: 800;
-    }
-    .turtle-emoji {
-        font-size: 48px;
-        animation: turtleWalk 1.5s ease-in-out both;
-    }
-    .turtle-text { font-size: 18px; }
+    .hero h1 { color: #fff !important; margin: 0; }
+    .hero p { color: #fff !important; font-size: 17px; margin-bottom: 0; }
     </style>
     """,
     unsafe_allow_html=True,
@@ -212,14 +89,14 @@ with st.expander("🎮 게임 방법", expanded=True):
     with c1:
         st.markdown("**📍 시작 위치**\n\n모든 플레이어는 8.0에서 출발해요.")
     with c2:
-        st.markdown("**👟 학습률 = 보폭**\n\n한 번 이동할 때 얼마나 크게 움직일지 정해요. 너무 크면 목표를 지나칠 수 있어요.")
+        st.markdown("**👟 학습률 = 보폭**\n\n학습률이 크면 목표를 지나칠 수 있고, 너무 크면 발산해요.")
     with c3:
-        st.markdown("**🔁 발걸음 수 = 이동 기회**\n\n공의 위치를 최대 몇 번 갱신할지 정해요.")
+        st.markdown("**🔁 이동 횟수**\n\n한 번의 이동은 위치를 한 번 갱신하는 계산 1회를 뜻해요.")
     st.markdown(
         """
         **학습률별 움직임**
-        - `0.05~0.49`: 목표를 향해 수렴
-        - `0.50`: 한 번에 목표에 도착
+        - `0.05~0.49`: 목표를 향해 한쪽에서 접근
+        - `0.50`: 한 번의 업데이트로 목표에 도착
         - `0.51~0.99`: 목표를 넘나들며 수렴
         - `1.00`: 같은 거리로 계속 튕김
         - `1.00 초과`: 점점 멀리 발산
@@ -233,21 +110,30 @@ if "personal_records" not in st.session_state:
     st.session_state.personal_records = []
 if "last_result" not in st.session_state:
     st.session_state.last_result = None
-if "effect_nonce" not in st.session_state:
-    st.session_state.effect_nonce = 0
+if "attempt_id" not in st.session_state:
+    st.session_state.attempt_id = 0
 
 # =========================================================
-# 5. 경사하강법 계산
+# 5. 경사하강법과 결과 판정
 # =========================================================
 def run_gradient_descent(x0, alpha, epochs):
+    """
+    actual_steps는 실제로 수행한 위치 업데이트 횟수.
+    목표 허용 오차에 도달하면 즉시 중단하므로, 도착 후 0에서
+    불필요하게 반복한 계산은 이동 횟수에 포함하지 않는다.
+    """
     x = float(x0)
     x_history = [x]
     y_history = [x * x]
     overflow = False
     actual_steps = 0
 
+    # 시작점이 이미 목표에 있다면 업데이트하지 않는다.
+    if abs(x) < SUCCESS_THRESHOLD:
+        return np.array(x_history), np.array(y_history), overflow, actual_steps
+
     for _ in range(int(epochs)):
-        x_next = x - alpha * (2.0 * x)
+        x_next = x - float(alpha) * (2.0 * x)
 
         if not np.isfinite(x_next) or abs(x_next) > CLIP_LIMIT:
             overflow = True
@@ -258,8 +144,8 @@ def run_gradient_descent(x0, alpha, epochs):
                 if alpha > 1:
                     direction *= -1.0
             x_next = direction * CLIP_LIMIT
-            x_history.append(x_next)
-            y_history.append(CLIP_LIMIT ** 2)
+            x_history.append(float(x_next))
+            y_history.append(float(CLIP_LIMIT ** 2))
             actual_steps += 1
             break
 
@@ -268,13 +154,15 @@ def run_gradient_descent(x0, alpha, epochs):
         y_history.append(x * x)
         actual_steps += 1
 
+        # 도착하면 즉시 종료해 실제 이동 횟수를 정확하게 표시
+        if abs(x) < SUCCESS_THRESHOLD:
+            break
+
     return np.array(x_history), np.array(y_history), overflow, actual_steps
 
 
 def classify_result(alpha, final_x, overflow):
-    if overflow or not np.isfinite(final_x):
-        return "우주폭발", "explode"
-    if alpha > 1.0:
+    if overflow or not np.isfinite(final_x) or alpha > 1.0:
         return "우주폭발", "explode"
     if np.isclose(alpha, 1.0, atol=1e-8):
         return "무한 핑퐁", "pingpong"
@@ -286,116 +174,187 @@ def classify_result(alpha, final_x, overflow):
 
 
 def calc_score(final_x, status_code):
-    """성공일 때만 100점, 그 외에는 최종 위치 오차에 따라 0~99점."""
     if status_code == "success":
         return 100
     if not np.isfinite(final_x):
         return 0
-    score = int(99 * math.exp(-abs(final_x) / 2.0))
-    return max(0, min(99, score))
+    return max(0, min(99, int(99 * math.exp(-abs(final_x) / 2.0))))
 
 
-def show_failure_effect(alpha, effect_nonce):
-    """components.html에서 독립 HTML로 폭발 애니메이션을 렌더링한다."""
-    if alpha > 1:
+# =========================================================
+# 6. 이펙트: iframe에서 HTML을 직접 렌더링해 코드 노출 방지
+# =========================================================
+def show_failure_effect(alpha, attempt_id):
+    if alpha > 1.0:
         message = "학습률이 너무 공격적이었습니다!"
+        headline = "🚨 학습률 폭주 🚨"
     elif np.isclose(alpha, 1.0, atol=1e-8):
-        message = "공이 끝없이 튕깁니다! 수렴하지 않습니다!"
+        message = "공이 같은 거리로 영원히 튕깁니다!"
+        headline = "🔁 무한 핑퐁 대참사 🔁"
     else:
-        message = "정해진 이동 횟수 안에 착륙하지 못했습니다!"
+        message = "정해진 이동 횟수 안에 목표에 도착하지 못했습니다!"
+        headline = "💥 착지 실패! 경사하강법 대참사 발생! 💥"
 
     particles = [
-        ("🔥", "-220px", "-160px"), ("💥", "210px", "-150px"),
-        ("☄️", "-240px", "90px"), ("🧨", "230px", "110px"),
-        ("⚡", "-120px", "190px"), ("🔥", "130px", "200px"),
-        ("💣", "0px", "-220px"), ("✨", "260px", "-10px"),
-        ("💥", "-260px", "-20px"), ("🪨", "80px", "-190px"),
+        ("🔥", "-250px", "-150px"), ("💥", "230px", "-170px"),
+        ("☄️", "-260px", "90px"), ("🧨", "250px", "110px"),
+        ("⚡", "-140px", "190px"), ("🔥", "150px", "210px"),
+        ("💣", "0px", "-230px"), ("✨", "270px", "-10px"),
+        ("💥", "-270px", "-25px"), ("🪨", "90px", "-200px"),
+        ("🌋", "-180px", "150px"), ("🚨", "190px", "-110px"),
+        ("⭐", "220px", "180px"), ("🔥", "-60px", "210px"),
     ]
     particle_html = "".join(
-        f'<span class="particle" style="--dx:{dx};--dy:{dy};animation-delay:{i * 0.035}s">{emoji}</span>'
+        f'<span class="particle" style="--dx:{dx};--dy:{dy};animation-delay:{i * 0.025}s">{emoji}</span>'
         for i, (emoji, dx, dy) in enumerate(particles)
     )
     safe_message = html.escape(message)
+    safe_headline = html.escape(headline)
 
     html_doc = f"""
     <!doctype html><html><head><meta charset="utf-8">
     <style>
-      * {{ box-sizing: border-box; }}
-      html, body {{ margin:0; padding:0; width:100%; height:100%; overflow:hidden; background:transparent; font-family:Arial,sans-serif; }}
+      * {{box-sizing:border-box}}
+      html,body {{margin:0;padding:0;width:100%;height:100%;overflow:hidden;background:transparent;font-family:Arial,sans-serif}}
       @keyframes shake {{
-        0%,100% {{ transform:translate(0,0) }}
-        10% {{ transform:translate(-9px,4px) }} 20% {{ transform:translate(8px,-3px) }}
-        30% {{ transform:translate(-7px,-5px) }} 40% {{ transform:translate(9px,3px) }}
-        50% {{ transform:translate(-6px,2px) }} 60% {{ transform:translate(6px,-4px) }}
-        70% {{ transform:translate(-4px,3px) }} 80% {{ transform:translate(4px,0) }}
+        0%,100% {{transform:translate(0,0) rotate(0)}}
+        8% {{transform:translate(-10px,5px) rotate(-.5deg)}}
+        16% {{transform:translate(9px,-5px) rotate(.5deg)}}
+        24% {{transform:translate(-11px,-4px) rotate(-.4deg)}}
+        32% {{transform:translate(10px,6px) rotate(.4deg)}}
+        40% {{transform:translate(-8px,3px)}}
+        48% {{transform:translate(8px,-4px)}}
+        56% {{transform:translate(-6px,-3px)}}
+        64% {{transform:translate(6px,4px)}}
+        72% {{transform:translate(-4px,2px)}}
+        84% {{transform:translate(3px,-2px)}}
       }}
-      @keyframes flash {{ 0%,100% {{opacity:0}} 12%,36% {{opacity:.5}} 24%,48% {{opacity:0}} }}
-      @keyframes pop {{ 0% {{transform:scale(.05) rotate(-20deg);opacity:0}} 35% {{transform:scale(1.12) rotate(8deg);opacity:1}} 65% {{transform:scale(.95) rotate(-5deg);opacity:1}} 100% {{transform:scale(1);opacity:1}} }}
-      @keyframes fly {{ 0% {{transform:translate(0,0) scale(.3) rotate(0);opacity:0}} 15% {{opacity:1}} 100% {{transform:translate(var(--dx),var(--dy)) scale(1.2) rotate(220deg);opacity:0}} }}
-      @keyframes pulse {{ 0%,100% {{text-shadow:0 0 5px #ff2525}} 50% {{text-shadow:0 0 22px #ff2525,0 0 38px #ff5a00}} }}
-      .overlay {{ position:relative; width:100%; height:340px; display:flex; align-items:center; justify-content:center; background:radial-gradient(circle,rgba(255,40,0,.2),rgba(100,0,0,.65)); animation:flash 1.2s ease-out both; border-radius:18px; overflow:hidden; }}
-      .card {{ position:relative; overflow:hidden; width:min(94%,650px); padding:24px 16px; text-align:center; color:white; border:3px solid #ff3b30; border-radius:22px; background:linear-gradient(160deg,#380606,#100d18 65%,#6d1000); box-shadow:0 0 35px #ff2400,inset 0 0 35px rgba(255,40,0,.25); animation:pop .65s cubic-bezier(.2,.8,.3,1.3) both,shake .55s ease-in-out .1s 2; }}
-      .title {{ font-size:clamp(24px,4vw,42px); font-weight:1000; color:#ff4438; animation:pulse .35s infinite; }}
-      .boom {{ font-size:clamp(48px,9vw,86px); line-height:1.25; filter:drop-shadow(0 0 18px #ff4b00); }}
-      .message {{ font-size:clamp(17px,2.8vw,24px); font-weight:900; margin-top:8px; }}
-      .subtitle {{ margin-top:10px; color:#ffd4c7; font-size:14px; }}
-      .particle {{ position:absolute; left:50%; top:50%; font-size:27px; animation:fly 1.15s ease-out both; }}
+      @keyframes flash {{
+        0%,100% {{opacity:0}}
+        5%,17%,29%,41% {{opacity:.68}}
+        11%,23%,35%,47% {{opacity:.05}}
+      }}
+      @keyframes pop {{
+        0% {{transform:scale(.03) rotate(-25deg);opacity:0}}
+        20% {{transform:scale(1.18) rotate(9deg);opacity:1}}
+        32% {{transform:scale(.92) rotate(-5deg)}}
+        45% {{transform:scale(1.05) rotate(3deg)}}
+        60%,100% {{transform:scale(1) rotate(0);opacity:1}}
+      }}
+      @keyframes fly {{
+        0% {{transform:translate(0,0) scale(.2) rotate(0);opacity:0}}
+        8% {{opacity:1}}
+        100% {{transform:translate(var(--dx),var(--dy)) scale(1.35) rotate(540deg);opacity:0}}
+      }}
+      @keyframes pulse {{
+        0%,100% {{text-shadow:0 0 5px #ff2525;filter:brightness(1)}}
+        50% {{text-shadow:0 0 25px #ff2525,0 0 45px #ff5a00;filter:brightness(1.6)}}
+      }}
+      @keyframes boom {{
+        0% {{transform:scale(.2);opacity:0}}
+        20% {{transform:scale(1.3);opacity:1}}
+        45% {{transform:scale(.9)}}
+        70% {{transform:scale(1.08)}}
+        100% {{transform:scale(1);opacity:1}}
+      }}
+      .overlay {{
+        position:relative;width:100%;height:390px;display:flex;align-items:center;justify-content:center;
+        background:radial-gradient(circle,rgba(255,70,0,.28),rgba(100,0,0,.78));
+        animation:flash 3s ease-out both; border-radius:18px;overflow:hidden;
+      }}
+      .card {{
+        position:relative;overflow:hidden;width:min(96%,700px);padding:22px 14px;text-align:center;color:white;
+        border:3px solid #ff3b30;border-radius:22px;
+        background:linear-gradient(160deg,#520707,#100d18 58%,#8c1800);
+        box-shadow:0 0 42px #ff2400,inset 0 0 38px rgba(255,40,0,.4);
+        animation:pop .7s cubic-bezier(.2,.8,.3,1.3) both,shake .65s ease-in-out .15s 3;
+      }}
+      .title {{font-size:clamp(24px,4.3vw,43px);font-weight:1000;color:#ff4438;animation:pulse .3s infinite}}
+      .headline {{font-size:clamp(17px,2.8vw,25px);font-weight:1000;margin-top:7px;color:#fff}}
+      .boom {{font-size:clamp(54px,10vw,92px);line-height:1.25;filter:drop-shadow(0 0 20px #ff4b00);animation:boom .7s ease-out both}}
+      .message {{font-size:clamp(16px,2.6vw,22px);font-weight:900;margin-top:9px;color:#fff}}
+      .subtitle {{margin-top:10px;color:#ffd4c7;font-size:14px}}
+      .particle {{position:absolute;left:50%;top:50%;font-size:28px;animation:fly 1.8s cubic-bezier(.1,.6,.2,1) both}}
+      .stamp {{display:inline-block;margin-top:12px;padding:6px 13px;border:2px dashed #ff8c42;border-radius:9px;color:#ffccaa;font-weight:900;letter-spacing:2px}}
     </style></head><body>
       <div class="overlay"><div class="card">
         {particle_html}
         <div class="title">☢️ CRITICAL FAILURE ☢️</div>
-        <div class="boom">💣💥🔥</div>
-        <div class="message">착지 실패! 경사하강법 대참사 발생!</div>
-        <div class="subtitle">{safe_message}<br>SYSTEM ALERT · 다음 도전에서는 설정을 조절하세요.</div>
+        <div class="boom">💣💥🔥🌋</div>
+        <div class="headline">{safe_headline}</div>
+        <div class="message">{safe_message}</div>
+        <div class="subtitle">SYSTEM ALERT · 궤도 이탈 · 착지 프로토콜 실패</div>
+        <div class="stamp">!!! TOTAL CHAOS !!!</div>
       </div></div>
-      <script>
-        // iframe 안의 애니메이션은 이 독립 문서에서 실행됩니다.
-        document.documentElement.dataset.effect = "{effect_nonce}";
-      </script>
+      <script>document.documentElement.dataset.attempt = "{attempt_id}";</script>
     </body></html>
     """
-    components.html(html_doc, height=350, scrolling=False)
+    components.html(html_doc, height=400, scrolling=False)
 
 
-def show_turtle_effect():
-    """느린 수렴 결과에 거북이 애니메이션을 1.5초 표시한다."""
-    components.html(
-        """
-        <!doctype html><html><head><meta charset="utf-8"><style>
-        @keyframes turtleWalk {
-          0% {opacity:0;transform:translateX(-45px)}
-          15%,75% {opacity:1}
-          100% {opacity:0;transform:translateX(45px)}
-        }
-        body {margin:0;font-family:Arial,sans-serif}
-        .wrap {height:90px;display:flex;align-items:center;justify-content:center;gap:12px;
-          border-radius:15px;background:#e4f4d7;border:2px solid #76a85b;color:#244b1c;font-weight:800}
-        .turtle {font-size:45px;animation:turtleWalk 1.5s ease-in-out both}
-        .text {font-size:17px}
-        </style></head><body>
-        <div class="wrap"><span class="turtle">🐢</span>
-        <span class="text">느릿느릿 이동 중... 조금만 더 기다려 주세요!</span></div>
-        </body></html>
-        """,
-        height=100,
-        scrolling=False,
-    )
+def show_turtle_effect(attempt_id):
+    """느린 결과일 때 거북이, 경고 표지, 흔들리는 글자를 1.5초 보여준다."""
+    html_doc = f"""
+    <!doctype html><html><head><meta charset="utf-8"><style>
+      * {{box-sizing:border-box}}
+      body {{margin:0;font-family:Arial,sans-serif}}
+      @keyframes turtleRun {{
+        0% {{opacity:0;transform:translateX(-90px) rotate(-12deg)}}
+        12% {{opacity:1;transform:translateX(-35px) rotate(8deg)}}
+        25% {{transform:translateX(15px) rotate(-8deg)}}
+        40% {{transform:translateX(-5px) rotate(6deg)}}
+        60% {{transform:translateX(30px) rotate(-4deg)}}
+        80% {{opacity:1;transform:translateX(55px) rotate(4deg)}}
+        100% {{opacity:0;transform:translateX(110px) rotate(0)}}
+      }}
+      @keyframes wobble {{
+        0%,100% {{transform:rotate(0)}}
+        25% {{transform:rotate(-3deg)}}
+        75% {{transform:rotate(3deg)}}
+      }}
+      @keyframes signPop {{
+        0% {{transform:scale(.1);opacity:0}}
+        35% {{transform:scale(1.2);opacity:1}}
+        65% {{transform:scale(.9)}}
+        100% {{transform:scale(1);opacity:1}}
+      }}
+      .wrap {{
+        height:118px;display:flex;align-items:center;justify-content:center;gap:14px;
+        border-radius:16px;background:linear-gradient(120deg,#e4f4d7,#fff3c4);
+        border:2px solid #76a85b;color:#244b1c;font-weight:900;overflow:hidden;
+      }}
+      .turtle {{font-size:52px;animation:turtleRun 1.5s ease-in-out both}}
+      .text {{font-size:17px;text-align:center;animation:wobble .2s ease-in-out 7}}
+      .sign {{font-size:29px;display:block;animation:signPop .5s ease-out both}}
+      .small {{font-size:12px;color:#426534;margin-top:5px}}
+    </style></head><body>
+      <div class="wrap">
+        <span class="turtle">🐢</span>
+        <div class="text">
+          <span class="sign">🐌 🚧 🐢</span>
+          느림보 경사하강법 출동!
+          <div class="small">조금씩 움직이는 중... 목표까지 천천히!</div>
+        </div>
+      </div>
+      <script>document.documentElement.dataset.attempt = "{attempt_id}";</script>
+    </body></html>
+    """
+    components.html(html_doc, height=125, scrolling=False)
 
 # =========================================================
-# 6. 게임 컨트롤러
+# 7. 사이드바 컨트롤
 # =========================================================
 st.sidebar.header("🎮 게임 컨트롤러")
-st.sidebar.caption("출발 위치는 모두 같아요.")
+st.sidebar.caption("출발 위치는 모든 플레이어가 동일해요.")
 nickname_input = st.sidebar.text_input("플레이어 닉네임", value="익명", max_chars=20)
 st.sidebar.metric("📍 시작 위치", "8.0 (고정)")
 st.sidebar.markdown("---")
 st.sidebar.subheader("👟 학습률 — 보폭")
 
 alpha_input = st.sidebar.slider(
-    "한 번에 움직이는 크",
+    "한 번에 움직이는 크기",
     min_value=0.05, max_value=1.50, value=0.80, step=0.05, format="%.2f",
 )
-
 if alpha_input < 0.5:
     st.sidebar.caption("🟢 목표를 향해 한쪽에서 접근해요.")
 elif np.isclose(alpha_input, 0.5):
@@ -414,7 +373,7 @@ st.sidebar.caption(f"학습률 {alpha_input:.2f} · 최대 {epochs_input}회 이
 run_button = st.sidebar.button("⚽ 도전 시작!", type="primary", width="stretch")
 
 # =========================================================
-# 7. 실행 및 개인 기록 저장
+# 8. 게임 실행 및 기록 저장
 # =========================================================
 if run_button:
     nickname = (nickname_input.strip() or "익명")[:20]
@@ -426,7 +385,8 @@ if run_button:
     status_label, status_code = classify_result(alpha_input, final_x, overflow)
     score = calc_score(final_x, status_code)
 
-    st.session_state.effect_nonce += 1
+    # 버튼을 누를 때마다 고유 ID를 올려 매 도전마다 이펙트를 다시 재생
+    st.session_state.attempt_id += 1
     result = {
         "nickname": nickname,
         "alpha": float(alpha_input),
@@ -440,10 +400,9 @@ if run_button:
         "status_code": status_code,
         "score": score,
         "overflow": overflow,
-        "effect_nonce": st.session_state.effect_nonce,
+        "attempt_id": st.session_state.attempt_id,
     }
     st.session_state.last_result = result
-
     st.session_state.personal_records.append({
         "닉네임": nickname,
         "학습률": alpha_input,
@@ -464,7 +423,7 @@ if run_button:
         st.toast("실험 기록을 저장했어요.", icon="⚽")
 
 # =========================================================
-# 8. 그래프
+# 9. 그래프와 결과
 # =========================================================
 st.divider()
 graph_col, score_col = st.columns([2, 1])
@@ -481,12 +440,12 @@ with graph_col:
 
     result = st.session_state.last_result
     if result is not None:
-        xs = result["x_history"]
-        ys = result["y_history"]
         fig.add_trace(go.Scatter(
-            x=xs, y=ys, mode="lines+markers",
+            x=result["x_history"], y=result["y_history"],
+            mode="lines+markers",
             line=dict(color="#D62728", width=3, dash="dot"),
-            marker=dict(size=10, color="#D62728", line=dict(color="#7F1D1D", width=1)),
+            marker=dict(size=10, color="#D62728",
+                        line=dict(color="#7F1D1D", width=1)),
             name="공의 이동",
             hovertemplate="위치: %{x:.5f}<br>Loss: %{y:.5f}<extra></extra>",
         ))
@@ -507,7 +466,6 @@ with graph_col:
         font=dict(color="#172033"),
     )
     st.plotly_chart(fig, width="stretch")
-
     if result is not None and abs(result["final_x"]) > 12:
         st.warning("공이 그래프 표시 범위 밖으로 나갔어요. 오른쪽 결과에서 최종 위치를 확인하세요.")
 
@@ -519,15 +477,15 @@ with score_col:
     else:
         code = result["status_code"]
 
-        # 효과를 점수판에 표시: HTML을 Markdown 코드로 출력하지 않고 별도 iframe으로 렌더링
+        # 매 도전의 결과가 저장되면 해당 효과가 렌더링된다.
         if code in ("explode", "pingpong"):
-            show_failure_effect(result["alpha"], result["effect_nonce"])
+            show_failure_effect(result["alpha"], result["attempt_id"])
         elif (
             code == "landing"
             and result["alpha"] <= 0.30
             and abs(result["final_x"]) >= SUCCESS_THRESHOLD
         ):
-            show_turtle_effect()
+            show_turtle_effect(result["attempt_id"])
 
         if code == "success":
             st.success("🎉 착륙 성공! 목표 위치에 도착했어요.")
@@ -545,20 +503,19 @@ with score_col:
         st.metric("📍 최종 위치", f"{result['final_x']:.8g}")
         st.metric("📉 최종 Loss", f"{result['final_loss']:.8g}")
         st.metric("🔁 실제 이동 횟수", f"{result['actual_steps']}회",
-                  help="공의 위치를 실제로 갱신한 횟수예요.")
+                  help="실제로 위치 업데이트를 실행한 횟수예요. 목표에 도착하면 조기 종료합니다.")
         st.caption(
             f"최대 이동 횟수: {result['epochs']}회 · "
             f"성공 기준: |x| < {SUCCESS_THRESHOLD:g}"
         )
 
 # =========================================================
-# 9. 개인 기록실
+# 10. 개인 기록실
 # =========================================================
 st.divider()
 st.header("📒 내 개인 기록")
-st.caption("이 기록실에는 현재 브라우저 세션에서 내가 실행한 실험만 표시돼요.")
-records = st.session_state.personal_records
-df = pd.DataFrame(records)
+st.caption("현재 브라우저 세션에서 내가 실행한 실험만 표시돼요.")
+df = pd.DataFrame(st.session_state.personal_records)
 
 if df.empty:
     st.info("아직 개인 기록이 없어요. 게임을 한 번 실행하면 결과가 여기에 저장돼요.")
@@ -575,9 +532,11 @@ else:
     st.dataframe(df.iloc[::-1], width="stretch", hide_index=True)
     csv_data = df.to_csv(index=False).encode("utf-8-sig")
     st.download_button(
-        "📥 내 기록 CSV 다운로드", data=csv_data,
+        "📥 내 기록 CSV 다운로드",
+        data=csv_data,
         file_name="my_gradient_descent_records.csv",
-        mime="text/csv", width="stretch",
+        mime="text/csv",
+        width="stretch",
     )
 
     st.markdown("### 📈 내 점수 변화")

@@ -1,4 +1,5 @@
 import html
+import json
 import math
 
 import numpy as np
@@ -447,28 +448,26 @@ with graph_col:
                 "step": i,
             })
 
-        # Use Plotly's native animated frames and trigger autoplay when the graph is rendered.
-        # Plotly's axes remain fixed throughout the animation.
+        # Build an animated Plotly graph inside one self-contained component.
+        # Graph and animation share the same iframe, so autoplay does not depend on cross-frame access.
         fig = go.Figure()
         fig.add_trace(go.Scatter(
             x=curve_x, y=curve_x**2, mode="lines",
-            line=dict(color="#667085", width=3), name="골짜기 f(x)=x²",
+            line=dict(color="#667085", width=3), name="이차함수 f(x)=x²",
             hoverinfo="skip"))
         fig.add_trace(go.Scatter(
             x=frame_payload[0]["x"], y=frame_payload[0]["y"],
             mode="lines+markers",
             line=dict(color="#D62728", width=3),
-            marker=dict(size=9, color="#D62728", symbol="circle", line=dict(color="#7F1D1D", width=1)),
-            name="공이 지나간 경로 · 방문 지점",
-            hovertemplate="위치: %{x:.5f}<br>Loss: %{y:.5f}<extra></extra>"))
+            marker=dict(size=9, color="#D62728", symbol="circle",
+                        line=dict(color="#7F1D1D", width=1)),
+            name="이동하며 찍힌 점",
+            hovertemplate="위치 x: %{x:.5f}<br>함숫값 y=x²: %{y:.5f}<extra></extra>"))
         fig.add_trace(go.Scatter(
             x=[frame_payload[0]["ball_x"]], y=[frame_payload[0]["ball_y"]],
-            mode="markers+text",
-            marker=dict(size=22, color="#FF8A00", symbol="circle",
-                        line=dict(color="#7F1D1D", width=2)),
-            text=["⚽"], textposition="top center", textfont=dict(size=20),
-            name="공의 현재 위치",
-            hovertemplate="현재 위치: %{x:.5f}<br>Loss: %{y:.5f}<extra></extra>"))
+            mode="text", text=["⚽"], textposition="middle center",
+            textfont=dict(size=25, color="#172033"), name="축구공",
+            hovertemplate="축구공 위치: (%{x:.5f}, %{y:.5f})<extra></extra>"))
         fig.add_trace(go.Scatter(
             x=[0], y=[0], mode="markers",
             marker=dict(size=16, color="#F4B400", symbol="star",
@@ -483,93 +482,72 @@ with graph_col:
                     go.Scatter(
                         x=frame["x"], y=frame["y"], mode="lines+markers",
                         line=dict(color="#D62728", width=3),
-                        marker=dict(size=9, color="#D62728", symbol="circle", line=dict(color="#7F1D1D", width=1)),
-                        name="공이 지나간 경로 · 방문 지점"),
+                        marker=dict(size=9, color="#D62728", symbol="circle",
+                                    line=dict(color="#7F1D1D", width=1)),
+                        name="이동하며 찍힌 점"),
                     go.Scatter(
                         x=[frame["ball_x"]], y=[frame["ball_y"]],
-                        mode="markers+text",
-                        marker=dict(size=22, color="#FF8A00", symbol="circle",
-                                    line=dict(color="#7F1D1D", width=2)),
-                        text=["⚽"], textposition="top center", textfont=dict(size=20),
-                        name="공의 현재 위치"),
+                        mode="text", text=["⚽"], textposition="middle center",
+                        textfont=dict(size=25, color="#172033"), name="축구공"),
                 ],
                 traces=[1, 2],
-                layout=go.Layout(title_text=f"경사하강법 이동 단계 {frame['step']} / {len(frame_payload)-1}"),
+                layout=go.Layout(title_text=f"이동 단계 {frame['step']} / {len(frame_payload)-1}"),
             ))
         fig.frames = frames
         fig.update_layout(
-            title_text=f"경사하강법 이동 단계 0 / {len(frame_payload)-1}",
-            xaxis_title="공의 위치 (x)", yaxis_title="오차 (Loss)",
-            xaxis=dict(range=[-12, 12], zeroline=True, fixedrange=True,
-                       constrain="domain"),
-            yaxis=dict(range=[-5, 120], zeroline=True, fixedrange=True,
-                       scaleanchor="x", scaleratio=0.35),
+            title_text=f"이동 단계 0 / {len(frame_payload)-1}",
+            xaxis_title="공의 위치 (x)", yaxis_title="함숫값 y=x²",
+            xaxis=dict(range=[-12, 12], zeroline=True, fixedrange=True),
+            yaxis=dict(range=[-5, 150], zeroline=True, fixedrange=True),
             height=540, margin=dict(l=15, r=15, t=55, b=15),
             plot_bgcolor="#fff", paper_bgcolor="#fff",
-            font=dict(color="#172033"),
-            showlegend=True,
+            font=dict(color="#172033"), showlegend=True,
             legend=dict(orientation="h", y=1.12, x=0),
             uirevision="fixed-gradient-graph",
-            updatemenus=[{
-                "type": "buttons", "showactive": False, "x": 1.0, "y": 1.18,
-                "xanchor": "right",
-                "buttons": [
-                    {"label": "▶ 다시 재생", "method": "animate",
-                     "args": [None, {"frame": {"duration": frame_duration, "redraw": True},
-                                     "transition": {"duration": transition_duration},
-                                     "fromcurrent": False, "mode": "immediate"}]},
-                    {"label": "⏸ 정지", "method": "animate",
-                     "args": [[None], {"frame": {"duration": 0, "redraw": False},
-                                       "mode": "immediate", "transition": {"duration": 0}}]},
-                ],
-            }],
         )
-        st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
 
-        # Autoplay this attempt's frames from a tiny adjacent component after Plotly is rendered.
-        # The animation itself is rendered in the fixed Plotly graph above; this bridge locates its
-        # Plotly div and calls Plotly.animate once for each attempt token.
+        frame_duration = 550  # 자동 속도: 사용자 조절 없음
+        figure_json = fig.to_json()
+        figure_json_for_html = json.dumps(figure_json)
         components.html(
             f"""
-            <div id="autoplay-status" style="font:12px sans-serif;color:#64748b;padding:2px 0">
-              ⚽ 이동 애니메이션 자동 재생 준비 중…
+            <div id="gd-graph" style="width:100%;height:555px;position:relative;">
+              <div id="gd-loading" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;background:#fff;color:#34445e;font:600 16px sans-serif;z-index:2;">
+                ⚽ 실험 결과를 준비하고 있어요…
+              </div>
+              <div id="gd-plot" style="width:100%;height:100%;"></div>
             </div>
+            <script src="https://cdn.plot.ly/plotly-2.35.2.min.js"></script>
             <script>
-            const token = {int(result["attempt_id"])};
-            const totalFrames = {len(frame_payload)};
-            const frameMs = {frame_duration};
-            const transitionMs = {transition_duration};
-            let tries = 0;
-            function startAnimation() {{
-              tries += 1;
-              const parentDoc = window.parent.document;
-              const plots = parentDoc.querySelectorAll('.stPlotlyChart .js-plotly-plot');
-              const plot = plots.length ? plots[plots.length - 1] : null;
-              const status = document.getElementById('autoplay-status');
-              if (plot && parentDoc.defaultView.Plotly && plot._fullLayout) {{
-                if (plot.dataset.autoplayToken !== String(token)) {{
-                  plot.dataset.autoplayToken = String(token);
-                  parentDoc.defaultView.Plotly.animate(
-                    plot, null,
-                    {{frame: {{duration: frameMs, redraw: true}},
-                     transition: {{duration: transitionMs}},
-                     fromcurrent: false, mode: 'immediate'}}
-                  );
-                }}
-                status.textContent = '⚽ 공이 포물선을 따라 자동으로 이동 중…';
-              }} else if (tries < 40) {{
-                setTimeout(startAnimation, 150);
-              }} else {{
-                status.textContent = '자동 재생을 시작하지 못했어요. 그래프의 “▶ 다시 재생”을 눌러 주세요.';
+            (async function() {{
+              const graphEl = document.getElementById('gd-plot');
+              const loading = document.getElementById('gd-loading');
+              const figureJson = JSON.parse({figure_json_for_html});
+              const fig = JSON.parse(figureJson);
+              await Plotly.newPlot(graphEl, fig.data, fig.layout, {{
+                responsive: true, displayModeBar: false, scrollZoom: false
+              }});
+              await Plotly.addFrames(graphEl, fig.frames || []);
+              loading.style.display = 'none';
+              if (fig.frames && fig.frames.length > 1) {{
+                await Plotly.animate(graphEl, null, {{
+                  frame: {{duration: {frame_duration}, redraw: true}},
+                  transition: {{duration: 0}},
+                  fromcurrent: false,
+                  mode: 'immediate'
+                }});
               }}
-            }}
-            setTimeout(startAnimation, 250);
+            }})().catch((err) => {{
+              const loading = document.getElementById('gd-loading');
+              if (loading) loading.textContent = '애니메이션을 불러오지 못했어요. 페이지를 새로고침해 주세요.';
+            }});
             </script>
             """,
-            height=30,
+            height=565,
             scrolling=False,
         )
-        st.caption("축구공은 이차함수 f(x)=x² 그래프 위를 따라 자동으로 이동합니다. 지나간 위치마다 점이 찍히며, 그래프 축은 고정됩니다.")
+        st.caption("실험을 실행하면 자동 재생됩니다. 축구공은 y=x² 위를 따라 움직이고, 지나간 위치마다 빨간 점이 찍힙니다. 좌표축은 고정됩니다.")
+
     if result is not None and abs(result["final_x"]) > 12:
         st.warning("공이 그래프 표시 범위 밖으로 나갔어요. 오른쪽 결과에서 최종 위치를 확인하세요.")
 

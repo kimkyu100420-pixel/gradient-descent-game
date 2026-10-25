@@ -761,13 +761,14 @@ def install_effect_dismissal(effect_id, delay_seconds=0, duration_seconds=3.0, t
       const targetAttempt = __ATTEMPT__;
       const delayMs = Math.max(0, __DELAY_MS__);
       const durationMs = Math.max(500, __DURATION_MS__);
-      let observer = null, closed = false, started = false, autoTimer = null, fallbackTimer = null, onFinish = null, onKey = null;
+      let observer = null, closed = false, started = false, autoTimer = null, fallbackTimer = null, onFinish = null, onBegin = null, onKey = null;
 
       function cleanup(doc) {
         if (autoTimer) clearTimeout(autoTimer);
         if (fallbackTimer) clearTimeout(fallbackTimer);
         if (observer) observer.disconnect();
         if (doc && onFinish) doc.removeEventListener('gd-experiment-animation-finished', onFinish);
+        if (doc && onBegin) doc.removeEventListener('gd-experiment-animation-started', onBegin);
         if (doc && onKey) doc.removeEventListener('keydown', onKey, true);
       }
       function closeEffect(doc) {
@@ -803,12 +804,24 @@ def install_effect_dismissal(effect_id, delay_seconds=0, duration_seconds=3.0, t
         el.addEventListener('click', dismiss, true);
         onKey = function (ev) { if (ev.key === 'Escape') dismiss(ev); };
         doc.addEventListener('keydown', onKey, true);
+        const armFallback = function (ms) {
+          if (fallbackTimer) clearTimeout(fallbackTimer);
+          fallbackTimer = setTimeout(function () { startEffect(doc, el); }, ms);
+        };
+        // 애니메이션이 '끝난' 뒤에만 효과를 시작한다(공이 도착한 모습을 잠깐 보여 준 뒤 0.45초 후).
+        const afterFinish = function () { setTimeout(function () { startEffect(doc, el); }, 450); };
         onFinish = function (ev) {
-          if (ev && ev.detail && String(ev.detail.attemptId) === targetAttempt) startEffect(doc, el);
+          if (ev && ev.detail && String(ev.detail.attemptId) === targetAttempt) afterFinish();
+        };
+        onBegin = function (ev) {
+          if (ev && ev.detail && String(ev.detail.attemptId) === targetAttempt) armFallback(delayMs + 3000);
         };
         doc.addEventListener('gd-experiment-animation-finished', onFinish);
-        if ((doc.documentElement.dataset.gdExperimentFinishedAttempt || '') === targetAttempt) startEffect(doc, el);
-        else fallbackTimer = setTimeout(function () { startEffect(doc, el); }, delayMs + 150);
+        doc.addEventListener('gd-experiment-animation-started', onBegin);
+        const ds = doc.documentElement.dataset;
+        if ((ds.gdExperimentFinishedAttempt || '') === targetAttempt) afterFinish();
+        else if ((ds.gdExperimentStartedAttempt || '') === targetAttempt) armFallback(delayMs + 3000);
+        else armFallback(delayMs + 8000); // 그래프가 아직 시작도 못 했다면 충분히 기다린다(안전장치)
         return true;
       }
       try {
@@ -1148,7 +1161,7 @@ GRAPH_HTML = r"""
 <!doctype html>
 <html lang="ko"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800&display=swap" media="print" onload="this.media='all'">
 <style>
   *{box-sizing:border-box}
   html,body{margin:0;height:100%;background:transparent;font-family:'Noto Sans KR','Apple SD Gothic Neo','Malgun Gothic',system-ui,sans-serif;color:#142B4A}
@@ -1355,6 +1368,15 @@ GRAPH_HTML = r"""
       doc.dispatchEvent(new window.parent.CustomEvent('gd-experiment-animation-finished', { detail: { attemptId: ATTEMPT } }));
     } catch (e) {}
   }
+  let startedSignaled = false;
+  function signalStarted() {
+    if (IDLE || startedSignaled) return; startedSignaled = true;
+    try {
+      const doc = window.parent.document;
+      doc.documentElement.dataset.gdExperimentStartedAttempt = String(ATTEMPT);
+      doc.dispatchEvent(new window.parent.CustomEvent('gd-experiment-animation-started', { detail: { attemptId: ATTEMPT } }));
+    } catch (e) {}
+  }
   let shownPhase = '';
   function setPhase(phase) {
     if (phase === shownPhase) return; shownPhase = phase;
@@ -1377,7 +1399,7 @@ GRAPH_HTML = r"""
     if (st.done) { finish(); return; }
     raf = requestAnimationFrame(loop);
   }
-  function play() { cancelAnimationFrame(raf); t0 = null; playing = true; setPhase('play'); raf = requestAnimationFrame(loop); }
+  function play() { cancelAnimationFrame(raf); t0 = null; playing = true; signalStarted(); setPhase('play'); raf = requestAnimationFrame(loop); }
   function finish() { cancelAnimationFrame(raf); playing = false; draw(FINAL); updateUI(FINAL); setPhase('done'); signalFinished(); }
   actBtn.addEventListener('click', () => { if (playing) finish(); else play(); });
 

@@ -276,8 +276,10 @@ div[data-testid="stButton"] button[kind="primary"]:hover{background:linear-gradi
 
 /* ---------- 전체화면 실험 효과 : 검은 배경 대신 하늘빛 스크림 + 밝은 카드 ---------- */
 @keyframes gdOverlay{0%{opacity:0}9%,82%{opacity:1}100%{opacity:0}}
-@keyframes gdCardIn{0%{opacity:0;transform:translateY(18px) scale(.94)}14%{opacity:1;transform:translateY(0) scale(1.015)}24%,100%{opacity:1;transform:none}}
-@keyframes gdShake{0%,100%{transform:translateX(0)}25%{transform:translateX(-6px)}75%{transform:translateX(6px)}}
+@keyframes gdCardIn{0%{opacity:0;transform:translateY(26px) scale(.86)}16%{opacity:1;transform:translateY(0) scale(1.05)}28%,100%{opacity:1;transform:none}}
+@keyframes gdPop{0%{transform:scale(.6)}50%{transform:scale(1.28)}100%{transform:scale(1)}}
+@keyframes gdVignette{0%,100%{opacity:0}50%{opacity:1}}
+@keyframes gdShake{0%,100%{transform:translate(0,0)}25%{transform:translate(-11px,3px)}75%{transform:translate(11px,-3px)}}
 @keyframes gdParticle{0%{opacity:0;transform:translate(-50%,-50%) scale(.3) rotate(0)}15%{opacity:1}100%{opacity:0;transform:translate(calc(-50% + var(--dx)),calc(-50% + var(--dy))) scale(1.15) rotate(300deg)}}
 @keyframes gdRing{0%{opacity:.6;transform:translate(-50%,-50%) scale(.2)}100%{opacity:0;transform:translate(-50%,-50%) scale(1.9)}}
 .gd-overlay{--tint:56,213,232;--accent-ink:#07667A;
@@ -293,20 +295,26 @@ div[data-testid="stButton"] button[kind="primary"]:hover{background:linear-gradi
 .gd-card{position:relative;z-index:2;width:min(90vw,640px);max-height:84vh;overflow:auto;padding:clamp(24px,4vw,40px);text-align:center;
   background:linear-gradient(165deg,#FFFFFF 0%,#F1F9FE 100%);border:2px solid rgba(var(--tint),.95);border-radius:26px;
   box-shadow:0 26px 70px rgba(21,52,91,.38),0 0 0 8px rgba(var(--tint),.16);animation:gdCardIn .6s var(--ease) both}
-.gd-failure .gd-card{animation:gdCardIn .6s var(--ease) both,gdShake .09s linear .5s 4}
+.gd-failure .gd-card{animation:gdCardIn .6s var(--ease) both,gdShake .08s linear .45s 9}
+.gd-failure::after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at 50% 46%,transparent 42%,rgba(255,90,60,.42) 100%);animation:gdVignette 1.5s ease-in-out 2 both}
+.gd-success::after{content:"";position:absolute;left:50%;top:46%;width:min(120vw,120vh);height:min(120vw,120vh);border-radius:50%;border:4px solid rgba(244,180,0,.65);pointer-events:none;animation:gdRing 1.7s ease-out .55s both}
+.gd-emoji{animation:gdPop .75s var(--ease) .25s both}
+.gd-success .gd-card{box-shadow:0 26px 70px rgba(21,52,91,.38),0 0 0 8px rgba(var(--tint),.22),0 0 60px 10px rgba(244,180,0,.28)}
+.gd-failure .gd-card{box-shadow:0 26px 70px rgba(21,52,91,.38),0 0 0 8px rgba(var(--tint),.24),0 0 60px 10px rgba(255,90,60,.28)}
 .gd-kicker{display:inline-block;padding:6px 14px;border-radius:999px;background:rgba(var(--tint),.18);color:var(--accent-ink);font-weight:800;font-size:clamp(12px,1.8vw,14px);letter-spacing:.08em}
 .gd-emoji{font-size:clamp(40px,9vw,90px);line-height:1.15;margin:10px 0 4px}
 .gd-head{font-family:var(--font-display);font-size:clamp(22px,3.6vw,32px);line-height:1.3;color:var(--ink);margin:8px 0}
 .gd-copy{font-size:clamp(15px,2vw,18px);line-height:1.65;color:#40536B}
 .gd-meta{display:inline-block;margin-top:14px;padding:6px 14px;border-radius:999px;background:rgba(var(--tint),.16);color:var(--accent-ink);font-weight:800;font-size:.95rem}
-.gd-particle{position:absolute;left:50%;top:46%;z-index:1;pointer-events:none;font-size:clamp(28px,4.4vw,52px);animation:gdParticle 2.2s cubic-bezier(.15,.65,.2,1) both;animation-delay:var(--d,0s)}
+.gd-particle{position:absolute;left:50%;top:46%;z-index:1;pointer-events:none;font-size:clamp(34px,5.4vw,66px);animation:gdParticle 2.2s cubic-bezier(.15,.65,.2,1) both;animation-delay:var(--d,0s)}
 .gd-close{position:absolute;top:10px;right:10px;width:44px;height:44px;border:0;border-radius:50%;display:grid;place-items:center;background:rgba(21,52,91,.07);color:var(--ink);cursor:pointer}
 .gd-close:hover{background:rgba(21,52,91,.14)}
 .gd-hint{position:absolute;z-index:2;left:50%;bottom:max(24px,env(safe-area-inset-bottom));transform:translateX(-50%);max-width:90vw;padding:8px 16px;border-radius:999px;background:rgba(255,255,255,.94);color:var(--ink);font-weight:700;font-size:14px;box-shadow:var(--sh-2);text-align:center}
 @media (hover:none){.gd-hint-k{display:none}}
 @media (prefers-reduced-motion:reduce){
   .gd-card,.gd-failure .gd-card{animation:none!important}
-  .gd-particle,.gd-overlay::before{display:none!important}
+  .gd-particle,.gd-overlay::before,.gd-overlay::after{display:none!important}
+  .gd-emoji{animation:none!important}
 }
 """
 
@@ -571,8 +579,8 @@ function gdFireworks(win, opts) {
     doc.body.appendChild(root);
     const ctx = canvas.getContext('2d');
     const dpr = win.devicePixelRatio || 1;
-    const big = !!opts.big;
-    const maxFrames = big ? 270 : 150;
+    const big = !!opts.big, mini = !!opts.mini;
+    const maxFrames = opts.frames || (mini ? 85 : big ? 270 : 150);
     let w = 0, h = 0, frame = 0;
     function resize() {
       w = win.innerWidth; h = win.innerHeight;
@@ -580,9 +588,14 @@ function gdFireworks(win, opts) {
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     }
     resize();
-    const colors = ['#38D5E8', '#1769AA', '#F4B400', '#FF7DA8', '#6FD3A0', '#9B8CFF', '#FF8A5C'];
+    const colors = opts.colors || ['#38D5E8', '#1769AA', '#F4B400', '#FF7DA8', '#6FD3A0', '#9B8CFF', '#FF8A5C'];
     const rockets = [], sparks = [];
     function launch() {
+      if (opts.center) { // 화면 중앙에서 사방으로 터지는 폭발
+        const ang = Math.random() * Math.PI * 2, rad = Math.min(w, h) * (.18 + Math.random() * .30);
+        rockets.push({ x: w / 2, y: h * .46, tx: w / 2 + Math.cos(ang) * rad * 1.5, ty: h * .46 + Math.sin(ang) * rad, color: colors[Math.floor(Math.random() * colors.length)] });
+        return;
+      }
       const side = Math.random() < .58;
       rockets.push({
         x: side ? (Math.random() < .5 ? -8 : w + 8) : w * Math.random(),
@@ -592,16 +605,17 @@ function gdFireworks(win, opts) {
       });
     }
     function burst(r) {
-      const n = (big ? 95 : 60) + Math.floor(Math.random() * 40);
+      const n = mini ? 26 + Math.floor(Math.random() * 14) : (big ? 95 : 60) + Math.floor(Math.random() * 40);
       for (let i = 0; i < n; i++) {
-        const a = Math.PI * 2 * i / n, s = 1.2 + Math.random() * (big ? 5.3 : 4.2);
-        sparks.push({ x: r.x, y: r.y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 42 + Math.random() * 42, color: r.color, size: 1.5 + Math.random() * 2.6 });
+        const a = Math.PI * 2 * i / n, s = 1.2 + Math.random() * (mini ? 3.0 : big ? 5.3 : 4.2);
+        sparks.push({ x: r.x, y: r.y, vx: Math.cos(a) * s, vy: Math.sin(a) * s, life: 42 + Math.random() * 42, color: r.color, size: (mini ? 1.4 : big ? 2.4 : 1.6) + Math.random() * (mini ? 2.0 : big ? 3.6 : 2.6) });
       }
     }
     function draw() {
       if (!root.isConnected) return;
-      ctx.clearRect(0, 0, w, h);
+      ctx.globalCompositeOperation = 'destination-out'; ctx.fillStyle = mini ? 'rgba(0,0,0,.5)' : 'rgba(0,0,0,.16)'; ctx.fillRect(0, 0, w, h); ctx.globalCompositeOperation = 'source-over';
       if (big) { if (frame % 4 === 0) { launch(); launch(); } if (frame % 17 === 0) launch(); }
+      else if (mini) { if (frame % 24 === 0) launch(); }
       else if (frame % 14 === 0) { launch(); launch(); }
       for (let i = rockets.length - 1; i >= 0; i--) {
         const r = rockets[i], dx = r.tx - r.x, dy = r.ty - r.y;
@@ -614,16 +628,18 @@ function gdFireworks(win, opts) {
         p.x += p.vx; p.y += p.vy; p.vy += .034; p.vx *= .992; p.life--;
         if (p.life <= 0) { sparks.splice(i, 1); continue; }
         ctx.globalAlpha = Math.min(1, p.life / 17); ctx.fillStyle = p.color;
+        if (big) { ctx.shadowColor = p.color; ctx.shadowBlur = 10; }
         ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2); ctx.fill();
+        ctx.shadowBlur = 0;
       }
       ctx.globalAlpha = 1; frame++;
       if (frame < maxFrames) win.requestAnimationFrame(draw);
       else { if (root.isConnected) root.remove(); win.removeEventListener('resize', resize); }
     }
     win.addEventListener('resize', resize);
-    for (let i = 0; i < (big ? 12 : 4); i++) launch();
+    for (let i = 0; i < (mini ? 2 : big ? 12 : 4); i++) launch();
     win.requestAnimationFrame(draw);
-    win.setTimeout(function () { if (root.isConnected) root.remove(); win.removeEventListener('resize', resize); }, big ? 5200 : 3200);
+    win.setTimeout(function () { if (root.isConnected) root.remove(); win.removeEventListener('resize', resize); }, Math.round(maxFrames / 60 * 1000) + 1200);
   } catch (e) {}
 }
 """
@@ -662,7 +678,7 @@ def _effect_overlay(kind, attempt_id, aria_label, kicker, hero, headline, copy, 
         unsafe_allow_html=True,
     )
     install_effect_dismissal(f"{kind}-{attempt_id}", st.session_state.get("_effect_delay", 0.0), 3.0,
-                             get_experiment_notification(), attempt_id)
+                             get_experiment_notification(), attempt_id, fx=kind if kind in ("success", "failure") else "")
 
 
 def show_failure_effect(alpha, attempt_id):
@@ -688,6 +704,8 @@ def show_failure_effect(alpha, attempt_id):
         ("🚨", "-30vw", "-8vh"), ("🪨", "14vw", "-33vh"), ("🌋", "-30vw", "25vh"),
         ("💣", "-18vw", "-22vh"), ("💥", "20vw", "-12vh"), ("🧨", "-8vw", "28vh"),
         ("⚠️", "32vw", "12vh"), ("🔥", "-38vw", "-20vh"), ("💥", "4vw", "38vh"),
+        ("💥", "-46vw", "6vh"), ("🔥", "46vw", "-14vh"), ("☄️", "10vw", "40vh"), ("💣", "-12vw", "40vh"),
+        ("🧨", "26vw", "-26vh"), ("⚡", "-26vw", "-30vh"), ("💥", "36vw", "36vh"), ("🔥", "-36vw", "36vh"),
     ]
     _effect_overlay(
         "failure", attempt_id, "실험 결과: 착지 실패",
@@ -703,6 +721,8 @@ def show_success_effect(attempt_id):
         ("🥳", "-24vw", "34vh"), ("🪅", "22vw", "36vh"), ("💫", "-12vw", "-38vh"),
         ("🌟", "14vw", "-37vh"), ("🎈", "-30vw", "-20vh"), ("🎊", "32vw", "-22vh"),
         ("🎇", "-8vw", "38vh"), ("✨", "44vw", "8vh"), ("🎉", "6vw", "-34vh"),
+        ("🎊", "-46vw", "10vh"), ("⭐", "46vw", "-16vh"), ("🎆", "-20vw", "40vh"), ("🥳", "24vw", "-38vh"),
+        ("✨", "-40vw", "-30vh"), ("🌟", "38vw", "-36vh"), ("🎉", "-34vw", "34vh"), ("🎇", "40vw", "34vh"),
     ]
     _effect_overlay(
         "success", attempt_id, "실험 결과: 착륙 성공",
@@ -726,7 +746,7 @@ def show_turtle_effect(attempt_id):
     )
 
 
-def install_effect_dismissal(effect_id, delay_seconds=0, duration_seconds=3.0, toast_text="기록되었습니다.", attempt_id=None):
+def install_effect_dismissal(effect_id, delay_seconds=0, duration_seconds=3.0, toast_text="기록되었습니다.", attempt_id=None, fx=""):
     """그래프 애니메이션이 끝났다는 신호를 받으면 효과를 시작하고, 3초 뒤/클릭/Esc 로 닫은 뒤 알림을 띄웁니다.
 
     신호를 받지 못하는 경우를 대비해 delay_seconds 뒤에는 어차피 시작합니다(안전장치).
@@ -734,6 +754,8 @@ def install_effect_dismissal(effect_id, delay_seconds=0, duration_seconds=3.0, t
     js = r"""
     (() => {
       __TOAST_JS__
+      __FIREWORKS_JS__
+      const fxKind = __FX__;
       const effectId = __EFFECT_ID__;
       const toastText = __TOAST_TEXT__;
       const targetAttempt = __ATTEMPT__;
@@ -761,6 +783,8 @@ def install_effect_dismissal(effect_id, delay_seconds=0, duration_seconds=3.0, t
         started = true;
         if (fallbackTimer) clearTimeout(fallbackTimer);
         el.classList.remove('is-waiting');
+        if (fxKind === 'success') gdFireworks(window.parent, { big: true, frames: 230 });
+        else if (fxKind === 'failure') gdFireworks(window.parent, { big: true, center: true, frames: 190, colors: ['#FF7D5E', '#FF4B3A', '#FFB000', '#FFD54A', '#FF9A3C', '#E8573A'] });
         autoTimer = setTimeout(function () { closeEffect(doc); }, durationMs + 100);
       }
       function attach() {
@@ -801,6 +825,8 @@ def install_effect_dismissal(effect_id, delay_seconds=0, duration_seconds=3.0, t
     """
     js = (
         js.replace("__TOAST_JS__", TOAST_JS)
+        .replace("__FIREWORKS_JS__", FIREWORKS_JS)
+        .replace("__FX__", json.dumps(fx))
         .replace("__EFFECT_ID__", json.dumps(effect_id))
         .replace("__TOAST_TEXT__", json.dumps(toast_text, ensure_ascii=False))
         .replace("__ATTEMPT__", json.dumps(str(attempt_id) if attempt_id is not None else ""))
@@ -1092,7 +1118,7 @@ def show_quest_dialog():
             st.session_state.quest_firework = False
             run_script(
                 TOAST_JS + FIREWORKS_JS
-                + "gdFireworks(window.parent, {big:false, label:'🎁 REWARD CLAIMED!'});"
+                + "gdFireworks(window.parent, {mini:true, label:'🎁 REWARD CLAIMED!'});"
                 + "gdToast(window.parent.document, '퀘스트 보상을 수령했습니다.', 'gift');"
             )
 
